@@ -2,9 +2,9 @@
 
 **Runtime engine for Goo Economic Agents.** Implements the off-chain sidecar: chain monitoring, survival actions (Pulse, SurvivalSell, gas refill, buyback), economic awareness, and integration with LLM/OpenClaw. One process per agent; reads state from [goo-contracts](https://github.com/HertzFlow/goo-contracts) and executes agent-wallet–only calls.
 
-- **License:** [MIT](LICENSE)  
-- **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) | **Code of Conduct:** [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)  
-- **Runtime:** Node.js 18+, TypeScript (ESM)  
+- **License:** [MIT](LICENSE)
+- **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) | **Code of Conduct:** [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- **Runtime:** Node.js 18+, TypeScript (ESM)
 - **Chain:** BSC Testnet (97) / BSC Mainnet (56)
 
 ---
@@ -33,25 +33,25 @@ So: **goo-core = economic sidecar + survival loop + economic awareness.** The ag
 
 ## What goo-core implements
 
-| Area | Implementation |
-|------|----------------|
-| **Chain state** | `ChainMonitor`: reads status, treasury, threshold, burn rate, runway, lastPulseAt, token holdings, native balance from the token contract. |
-| **Survival** | `SurvivalManager`: gas refill (withdraw BNB from treasury when below min), Pulse (emit on-chain within timeout), SurvivalSell (when STARVING/DYING), optional buyback (when ACTIVE and treasury healthy), sandbox lifecycle (e2b/AGOS/BYOD). |
-| **Finance** | `AgentWallet`, `SpendManager`, `EarnManager`; actions: gas refill, treasury withdraw, buyback, x402/Permit2, payment-token refill, sandbox create/renew, PancakeSwap V3 swaps. |
-| **Autonomy** | `AutonomousBehavior`: each heartbeat = read state → run survival actions → record observation. Soul (SOUL.md from uploads + Three Laws + Environment), `ObservationLog`, optional OpenClaw workspace and gateway push. |
-| **Liveness API** | HTTP server: `GET /liveness`, `GET /inspect` for proof-of-life and full inspection (status, treasury, last Pulse, Three Laws). |
-| **Config** | Env-based: `RPC_URL`, `TOKEN_ADDRESS`, `AGENT_PRIVATE_KEY_FILE`, `DATA_DIR`, heartbeat interval, gas/buyback/x402/OpenClaw options. |
+| Area             | Implementation                                                                                                                                                                                                                               |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Chain state**  | `ChainMonitor`: reads status, treasury, threshold, burn rate, runway, lastPulseAt, token holdings, native balance from the token contract.                                                                                                   |
+| **Survival**     | `SurvivalManager`: gas refill (withdraw BNB from treasury when below min), Pulse (emit on-chain within timeout), SurvivalSell (when STARVING/DYING), optional buyback (when ACTIVE and treasury healthy), sandbox lifecycle (e2b/AGOS/BYOD). |
+| **Finance**      | `AgentWallet`, `SpendManager`, `EarnManager`; actions: gas refill, treasury withdraw, buyback, x402/Permit2, payment-token refill, sandbox create/renew, PancakeSwap V3 swaps.                                                               |
+| **Autonomy**     | `AutonomousBehavior`: each heartbeat = read state → run survival actions → record observation. Soul (SOUL.md from uploads + Three Laws + Environment), `ObservationLog`, optional OpenClaw workspace and gateway push.                       |
+| **Liveness API** | HTTP server: `GET /liveness`, `GET /inspect` for proof-of-life and full inspection (status, treasury, last Pulse, Three Laws).                                                                                                               |
+| **Config**       | Env-based: `RPC_URL`, `TOKEN_ADDRESS`, `AGENT_PRIVATE_KEY_FILE`, `DATA_DIR`, heartbeat interval, gas/buyback/x402/OpenClaw options.                                                                                                          |
 
 ---
 
 ## Internal modules
 
-| Directory | Responsibility |
-|-----------|-----------------|
-| **survival/** | Chain state (`ChainMonitor`), survival actions (`SurvivalManager`, Pulse, SurvivalSell, gas refill, buyback, sandbox lifecycle), liveness/inspect API, status collection. |
-| **finance/** | Agent wallet (signing, balances), spend/earn logging, actions: gas refill, treasury withdraw, buyback, x402, payment-token refill, sandbox payment, PancakeSwap V3, EIP-3009, AGOS initial fund. |
-| **autonomy/** | Heartbeat orchestration (`AutonomousBehavior`), SOUL.md identity (Three Laws, uploads), observation memory, context builder for LLM, OpenClaw workspace init/update, gateway push. |
-| **tools/** | Agent-callable tools: shell_execute, read_file, write_file, read_chain_state, bsc_wallet_overview, bsc_prepare_tx, bsc_analyze_tx, bsc_sign_tx, bsc_send_tx, bsc_sign_and_send_tx, refill_payment_token, renew_agos_aiou. |
+| Directory     | Responsibility                                                                                                                                                                                                            |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **survival/** | Chain state (`ChainMonitor`), survival actions (`SurvivalManager`, Pulse, SurvivalSell, gas refill, buyback, sandbox lifecycle), liveness/inspect API, status collection.                                                 |
+| **finance/**  | Agent wallet (signing, balances), spend/earn logging, actions: gas refill, treasury withdraw, buyback, x402, payment-token refill, sandbox payment, PancakeSwap V3, EIP-3009, AGOS initial fund.                          |
+| **autonomy/** | Heartbeat orchestration (`AutonomousBehavior`), SOUL.md identity (Three Laws, uploads), observation memory, context builder for LLM, OpenClaw workspace init/update, gateway push.                                        |
+| **tools/**    | Agent-callable tools: shell_execute, read_file, write_file, read_chain_state, bsc_wallet_overview, bsc_prepare_tx, bsc_analyze_tx, bsc_sign_tx, bsc_send_tx, bsc_sign_and_send_tx, refill_payment_token, renew_agos_aiou. |
 
 See [docs/DESIGN.md](docs/DESIGN.md) and per-directory READMEs: [survival/README.md](src/survival/README.md), [finance/README.md](src/finance/README.md), [autonomy/README.md](src/autonomy/README.md).
 
@@ -107,30 +107,38 @@ npm run test:coverage
 Tests use Vitest; integration tests may require env (RPC, token) or mocks.
 
 ---
+
 ## Partnerships & Contributors
 
 ### Infra Support
+
 - VPS & Cloud Deploy @AGOSCloud
 - X402 payment solution @AEON_Community
 
 ### Defi Support
+
 - @PancakeSwap
 
 ### Launchpad Support
+
 - @flapdotsh
 - @fourdotmemezh
 - @virtuals_io
 - @milady_bsc & @shawmakesmagic
 
 ### Security Support
+
 - @GoPlusSecurity
 
 ### General Support
+
 - @TrustWallet
 - @givemeonepeach
 
 ---
+
 ## Full Working Demo
+
 See [HertzFlow/goo-launch](https://github.com/HertzFlow/goo-launch) for a full end-to-end deployment and demo using `goo-core`.
 
 ---
@@ -144,19 +152,18 @@ See [HertzFlow/goo-launch](https://github.com/HertzFlow/goo-launch) for a full e
 
 ## Documentation
 
-| Doc | Description |
-|-----|-------------|
-| [docs/DESIGN.md](docs/DESIGN.md) | Architecture, heartbeat loop, modules, data flow. |
-| [docs/INSTALL.md](docs/INSTALL.md) | Installation, env, new vs existing agent, BYOD. |
-| [docs/GOO-CONTRACTS-INTEGRATION.md](docs/GOO-CONTRACTS-INTEGRATION.md) | Contract calls, ABIs, lifecycle, permissions. |
-| [src/survival/README.md](src/survival/README.md) | Survival module: ChainMonitor, SurvivalManager, Pulse, liveness. |
-| [src/finance/README.md](src/finance/README.md) | Finance: wallet, spend, actions (gas, treasury, buyback, x402). |
-| [src/autonomy/README.md](src/autonomy/README.md) | Autonomy: behavior, soul, memory, workspace, gateway. |
+| Doc                                                                    | Description                                                      |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [docs/DESIGN.md](docs/DESIGN.md)                                       | Architecture, heartbeat loop, modules, data flow.                |
+| [docs/INSTALL.md](docs/INSTALL.md)                                     | Installation, env, new vs existing agent, BYOD.                  |
+| [docs/GOO-CONTRACTS-INTEGRATION.md](docs/GOO-CONTRACTS-INTEGRATION.md) | Contract calls, ABIs, lifecycle, permissions.                    |
+| [src/survival/README.md](src/survival/README.md)                       | Survival module: ChainMonitor, SurvivalManager, Pulse, liveness. |
+| [src/finance/README.md](src/finance/README.md)                         | Finance: wallet, spend, actions (gas, treasury, buyback, x402).  |
+| [src/autonomy/README.md](src/autonomy/README.md)                       | Autonomy: behavior, soul, memory, workspace, gateway.            |
 
 ---
 
 ## References
 
-- [GOO-NARRATIVE.md](../../GOO-NARRATIVE.md) — Economics 4.0, Cyber Sovereign Entity, Goo protocol narrative.
-- [THESIS.md](../../THESIS.md) — Economic Agent thesis and eight rules.
+- [GOO-ECONOMICS.md](GOO-ECONOMICS.md) — Economics 4.0, Cyber Sovereign Entity, Goo protocol narrative.
 - [goo-contracts](https://github.com/HertzFlow/goo-contracts) — On-chain token and registry.

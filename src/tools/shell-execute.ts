@@ -1,8 +1,7 @@
 import { exec } from "node:child_process";
 import type { AgentTool, ToolContext } from "../types.js";
-
-const MAX_OUTPUT = 10_000; // 10KB
-const TIMEOUT_MS = 30_000; // 30s
+import { TOOLS_SHELL_MAX_OUTPUT, TOOLS_SHELL_TIMEOUT_MS } from "../const.js";
+import { redactSensitive } from "../security/sensitive.js";
 
 export const shellExecuteTool: AgentTool = {
   definition: {
@@ -11,7 +10,7 @@ export const shellExecuteTool: AgentTool = {
       "Run a shell command on the VPS. You have root access. " +
       "Use this to: install packages, manage processes, read logs, " +
       "deploy services, check system resources, earn revenue. " +
-      "Timeout: 30 seconds. Output truncated to 10KB.",
+      `Timeout: ${TOOLS_SHELL_TIMEOUT_MS / 1000} seconds. Output truncated to ${TOOLS_SHELL_MAX_OUTPUT / 1000}KB.`,
     parameters: {
       type: "object",
       properties: {
@@ -26,7 +25,7 @@ export const shellExecuteTool: AgentTool = {
 
   async execute(
     args: Record<string, unknown>,
-    _ctx: ToolContext
+    ctx: ToolContext,
   ): Promise<string> {
     const command = args.command as string;
     if (!command || typeof command !== "string") {
@@ -37,8 +36,8 @@ export const shellExecuteTool: AgentTool = {
       exec(
         command,
         {
-          timeout: TIMEOUT_MS,
-          maxBuffer: MAX_OUTPUT * 2,
+          timeout: TOOLS_SHELL_TIMEOUT_MS,
+          maxBuffer: TOOLS_SHELL_MAX_OUTPUT * 2,
           shell: "/bin/bash",
         },
         (error, stdout, stderr) => {
@@ -51,12 +50,12 @@ export const shellExecuteTool: AgentTool = {
           }
 
           // Truncate
-          if (output.length > MAX_OUTPUT) {
-            output = output.slice(0, MAX_OUTPUT) + "\n... (truncated)";
+          if (output.length > TOOLS_SHELL_MAX_OUTPUT) {
+            output = output.slice(0, TOOLS_SHELL_MAX_OUTPUT) + "\n... (truncated)";
           }
 
-          resolve(output || "(no output)");
-        }
+          resolve(redactSensitive(output || "(no output)", [ctx.config.walletPrivateKey]));
+        },
       );
     });
   },

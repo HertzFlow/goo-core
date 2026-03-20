@@ -1,17 +1,17 @@
 import { writeFile, readFile, mkdir } from "node:fs/promises";
 import { join, dirname, resolve, relative, basename } from "node:path";
 import type { AgentTool, ToolContext } from "../types.js";
-
-const MAX_CONTENT = 50_000; // 50KB
+import { TOOLS_WRITE_FILE_MAX_CONTENT, SOUL_LEARNED_HEADER } from "../const.js";
 
 export const writeFileTool: AgentTool = {
   definition: {
     name: "write_file",
     description:
-      "Write content to a file in your data directory. " +
-      "Use relative paths (e.g. 'notes.md', 'SOUL.md'). " +
+      "Write content to a file in your data directory or workspace. " +
+      "Use relative paths (e.g. 'notes.md', 'MEMORY.md'). " +
+      "Prefix with 'workspace/' to write to the OpenClaw workspace (e.g. 'workspace/MEMORY.md'). " +
       "Set append=true to add to the end instead of overwriting. " +
-      "Max 50KB per write. Restricted to data directory only.",
+      `Max ${TOOLS_WRITE_FILE_MAX_CONTENT / 1000}KB per write.`,
     parameters: {
       type: "object",
       properties: {
@@ -34,7 +34,7 @@ export const writeFileTool: AgentTool = {
 
   async execute(
     args: Record<string, unknown>,
-    ctx: ToolContext
+    ctx: ToolContext,
   ): Promise<string> {
     const relPath = args.path as string;
     const content = args.content as string;
@@ -46,15 +46,23 @@ export const writeFileTool: AgentTool = {
     if (typeof content !== "string") {
       return "Error: content must be a string";
     }
-    if (content.length > MAX_CONTENT) {
-      return `Error: content too large (${content.length} bytes, max ${MAX_CONTENT})`;
+    if (content.length > TOOLS_WRITE_FILE_MAX_CONTENT) {
+      return `Error: content too large (${content.length} bytes, max ${TOOLS_WRITE_FILE_MAX_CONTENT})`;
     }
 
-    // Security: resolve and verify path is within data directory
-    const fullPath = resolve(join(ctx.dataDir, relPath));
-    const relToData = relative(ctx.dataDir, fullPath);
-    if (relToData.startsWith("..") || relToData.startsWith("/")) {
-      return "Error: path must be within data directory (no directory traversal)";
+    // Determine target directory: workspace/ prefix → workspace dir, otherwise data dir
+    let targetDir = ctx.dataDir;
+    let targetRelPath = relPath;
+    if (relPath.startsWith("workspace/")) {
+      targetDir = ctx.workspaceDir;
+      targetRelPath = relPath.slice("workspace/".length);
+    }
+
+    // Security: resolve and verify path is within target directory
+    const fullPath = resolve(join(targetDir, targetRelPath));
+    const relToTarget = relative(targetDir, fullPath);
+    if (relToTarget.startsWith("..") || relToTarget.startsWith("/")) {
+      return "Error: path must be within allowed directory (no directory traversal)";
     }
 
     // SOUL.md write protection (protocol-level — Three Laws immutability)
@@ -78,20 +86,18 @@ export const writeFileTool: AgentTool = {
   },
 };
 
-const LEARNED_HEADER = "## Learned";
-
 /**
- * Write-protect SOUL.md: only the "## Learned" section can be modified.
- * Preserves everything above "## Learned" and replaces only the content below it.
+ * Write-protect SOUL.md: only the Learned section can be modified.
+ * Preserves everything above the header and replaces only the content below it.
  */
 async function writeSoulLearned(
   fullPath: string,
   content: string,
-  append: boolean
+  append: boolean,
 ): Promise<string> {
   try {
     const existing = await readFile(fullPath, "utf-8");
-    const headerIndex = existing.indexOf(LEARNED_HEADER);
+    const headerIndex = existing.indexOf(SOUL_LEARNED_HEADER);
 
     if (headerIndex === -1) {
       return (
@@ -106,13 +112,14 @@ async function writeSoulLearned(
     if (append) {
       // Append: keep existing Learned content and add new content at the end
       const learnedPart = existing.slice(headerIndex);
-      const updated = immutablePart + learnedPart.trimEnd() + "\n" + content + "\n";
+      const updated =
+        immutablePart + learnedPart.trimEnd() + "\n" + content + "\n";
       await writeFile(fullPath, updated, "utf-8");
       return `Appended ${content.length} bytes to SOUL.md ## Learned section.`;
     }
 
     // Overwrite: replace only the Learned section
-    const updated = immutablePart + LEARNED_HEADER + "\n\n" + content + "\n";
+    const updated = immutablePart + SOUL_LEARNED_HEADER + "\n\n" + content + "\n";
     await writeFile(fullPath, updated, "utf-8");
     return `Updated SOUL.md ## Learned section (${content.length} bytes). Other sections preserved.`;
   } catch (err: unknown) {

@@ -1,8 +1,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import type { Observation } from "../types.js";
-
-const MAX_OBSERVATIONS = 200;
+import { MEMORY_MAX_OBSERVATIONS } from "../const.js";
 
 /**
  * Append-only observation log.
@@ -25,8 +24,8 @@ export class ObservationLog {
       this.observations = lines.map((line) => JSON.parse(line) as Observation);
 
       // Truncate if over limit
-      if (this.observations.length > MAX_OBSERVATIONS) {
-        this.observations = this.observations.slice(-MAX_OBSERVATIONS);
+      if (this.observations.length > MEMORY_MAX_OBSERVATIONS) {
+        this.observations = this.observations.slice(-MEMORY_MAX_OBSERVATIONS);
         await this.flush();
       }
     } catch {
@@ -40,17 +39,13 @@ export class ObservationLog {
     this.observations.push(obs);
 
     // Truncate oldest if over limit
-    if (this.observations.length > MAX_OBSERVATIONS) {
-      this.observations = this.observations.slice(-MAX_OBSERVATIONS);
+    if (this.observations.length > MEMORY_MAX_OBSERVATIONS) {
+      this.observations = this.observations.slice(-MEMORY_MAX_OBSERVATIONS);
       await this.flush();
     } else {
       // Append single line
       await mkdir(dirname(this.filePath), { recursive: true });
-      await writeFile(
-        this.filePath,
-        JSON.stringify(obs) + "\n",
-        { flag: "a" }
-      );
+      await writeFile(this.filePath, JSON.stringify(obs) + "\n", { flag: "a" });
     }
   }
 
@@ -58,12 +53,12 @@ export class ObservationLog {
   getRecent(count: number = 5): string[] {
     return this.observations.slice(-count).map((obs) => {
       const time = obs.timestamp.split("T")[1]?.split(".")[0] ?? obs.timestamp;
-      const tools = obs.toolsCalled.length > 0
-        ? obs.toolsCalled.join(", ")
-        : "none";
-      const shells = obs.shellCommands.length > 0
-        ? ` | commands: ${obs.shellCommands.join("; ")}`
-        : "";
+      const tools =
+        obs.toolsCalled.length > 0 ? obs.toolsCalled.join(", ") : "none";
+      const shells =
+        obs.shellCommands.length > 0
+          ? ` | commands: ${obs.shellCommands.join("; ")}`
+          : "";
       return (
         `[${time}] #${obs.heartbeat} Status=${obs.status}, ` +
         `Balance=$${obs.balanceUsd.toFixed(2)}, ` +
@@ -86,9 +81,8 @@ export class ObservationLog {
   /** Flush all observations to disk (rewrite) */
   private async flush(): Promise<void> {
     await mkdir(dirname(this.filePath), { recursive: true });
-    const content = this.observations
-      .map((obs) => JSON.stringify(obs))
-      .join("\n") + "\n";
+    const content =
+      this.observations.map((obs) => JSON.stringify(obs)).join("\n") + "\n";
     await writeFile(this.filePath, content, "utf-8");
   }
 }

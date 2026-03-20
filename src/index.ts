@@ -1,92 +1,45 @@
-import { ChainMonitor } from "./chain-monitor.js";
-import { SurvivalManager } from "./survival.js";
+#!/usr/bin/env node
+import { createRequire } from "node:module";
+
+// --version flag: print version and exit
+if (process.argv.includes("--version") || process.argv.includes("-v")) {
+  const require = createRequire(import.meta.url);
+  const pkg = require("../package.json");
+  console.log(`goo-core v${pkg.version}`);
+  process.exit(0);
+}
+
+import { config as loadEnv } from "dotenv";
+if (process.env.VITEST !== "true") {
+  loadEnv(); // load .env into process.env when not in test
+}
+import { ChainMonitor, SurvivalManager, runInspectServer, buildLivenessApiDeps, createSandboxLifecycle } from "./survival/index.js";
 import { AutonomousBehavior } from "./autonomy/behavior.js";
-import { shellExecuteTool } from "./tools/shell-execute.js";
-import { readChainStateTool } from "./tools/read-chain-state.js";
-import { readFileTool } from "./tools/read-file.js";
-import { writeFileTool } from "./tools/write-file.js";
-import { AgentStatus, type RuntimeConfig } from "./types.js";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
-// ─── Configuration from environment ─────────────────────────────────────
-
-function loadConfig(): RuntimeConfig {
-  const required = (key: string): string => {
-    const val = process.env[key];
-    if (!val) throw new Error(`Missing required env var: ${key}`);
-    return val;
-  };
-
-  const optional = (key: string, fallback: string): string =>
-    process.env[key] ?? fallback;
-
-  const dataDir = optional("DATA_DIR", "/opt/data");
-
-  return {
-    rpcUrl: required("RPC_URL"),
-    chainId: parseInt(optional("CHAIN_ID", "97")), // BSC Testnet
-    tokenAddress: required("TOKEN_ADDRESS"),
-    walletPrivateKey: required("WALLET_PRIVATE_KEY"),
-
-    llmApiUrl: optional("LLM_API_URL", "https://openrouter.ai/api/v1"),
-    llmApiKey: required("LLM_API_KEY"),
-    llmModel: optional("LLM_MODEL", "deepseek/deepseek-chat"),
-    llmMaxTokens: parseInt(optional("LLM_MAX_TOKENS", "1024")),
-    llmTimeoutMs: parseInt(optional("LLM_TIMEOUT_MS", "60000")),
-
-    heartbeatIntervalMs: parseInt(optional("HEARTBEAT_INTERVAL_MS", "30000")),
-    maxToolRoundsPerHeartbeat: parseInt(optional("MAX_TOOL_ROUNDS", "5")),
-    dataDir,
-
-    uploads: {}, // Loaded from files below
-
-    minGasBalance: BigInt(optional("MIN_GAS_BALANCE", "10000000000000000")), // 0.01 BNB
-    gasRefillAmount: BigInt(optional("GAS_REFILL_AMOUNT", "50000000000000000")), // 0.05 BNB
-
-    buyback: process.env.BUYBACK_ENABLED === "true"
-      ? {
-          enabled: true,
-          thresholdMultiplier: parseInt(optional("BUYBACK_THRESHOLD_MULTIPLIER", "10")),
-          burnAddress: optional("BUYBACK_BURN_ADDRESS", "0x000000000000000000000000000000000000dEaD"),
-        }
-      : undefined,
-  };
-}
-
-/** Load deployer uploads from data directory */
-async function loadUploads(
-  dataDir: string
-): Promise<RuntimeConfig["uploads"]> {
-  const uploads: RuntimeConfig["uploads"] = {};
-
-  const tryLoad = async (filename: string): Promise<string | undefined> => {
-    try {
-      return await readFile(join(dataDir, filename), "utf-8");
-    } catch {
-      return undefined;
-    }
-  };
-
-  uploads.soul = await tryLoad("soul.md");
-  uploads.agent = await tryLoad("agent.md");
-  uploads.skills = await tryLoad("skills.md");
-  uploads.memory = await tryLoad("memory.md");
-
-  return uploads;
-}
+import { ethers } from "ethers";
+import { AgentWallet } from "./finance/wallet.js";
+import { SpendManager } from "./finance/spend.js";
+import { detectTreasuryCapabilities } from "./finance/action/treasury.js";
+import { AgosInitialFund } from "./finance/action/agos-initial-fund.js";
+import { AgentStatus } from "./types.js";
+import { ENV, ENV_DEFAULTS } from "./const.js";
+import { initWorkspace, updateWorkspace } from "./autonomy/workspace.js";
+import { loadConfigFromEnv, loadUploads } from "./runtime-config.js";
+import { pushSystemEvent, formatHeartbeatEvent, pushWorkspaceRefresh } from "./autonomy/gateway-push.js";
 
 // ─── Main ────────────────────────────────────────────────────────────────
 
-async function main(): Promise<void> {
+/** Entry point. Exported for E2E tests; when VITEST=true, tests call main() themselves. */
+export async function main(): Promise<void> {
+  const require = createRequire(import.meta.url);
+  const pkgVersion = require("../package.json").version;
   console.log("╔══════════════════════════════════════════════╗");
-  console.log("║  Goo Core v1.0                              ║");
+  console.log(`║  Goo Core v${pkgVersion.padEnd(33)}║`);
   console.log("║  On-Chain Life Experiment for Goo Agents     ║");
   console.log("╚══════════════════════════════════════════════╝");
   console.log();
 
   // Load configuration
-  const config = loadConfig();
+  const config = loadConfigFromEnv();
   config.uploads = await loadUploads(config.dataDir);
 
   console.log(`Token:     ${config.tokenAddress}`);
@@ -99,19 +52,74 @@ async function main(): Promise<void> {
   // Initialize chain monitor
   const monitor = new ChainMonitor(config);
   await monitor.init();
-  console.log(`Agent wallet: ${monitor.walletAddress}`);
+
+  // Initialize signer from local private key
+  if (!config.walletPrivateKey) {
+    throw new Error("No wallet private key configured (AGENT_PRIVATE_KEY_FILE)");
+  }
+  const signer = new ethers.Wallet(config.walletPrivateKey, monitor.rpcProvider);
+
+  // Fallback: if contract doesn't expose agentWallet(), use signer address
+  const signerAddress = await signer.getAddress();
+  monitor.setWalletAddress(signerAddress);
+  if (monitor.walletAddress) {
+    console.log(`Agent wallet: ${monitor.walletAddress}`);
+  }
+
+  // Initialize agent wallet (signing, balance queries)
+  const agentWallet = new AgentWallet(
+    signer,
+    config.tokenAddress,
+    monitor.rpcProvider,
+    config.x402PaymentToken,
+    config.minWalletBnb,
+  );
+  await agentWallet.init();
+
+  // Detect treasury capabilities (V2 withdraw support)
+  const treasuryCaps = await detectTreasuryCapabilities(
+    config.tokenAddress,
+    monitor.rpcProvider,
+  );
+  console.log(`Treasury withdraw: ${treasuryCaps.hasWithdrawToWallet}`);
+
+  // Initialize spend manager (self-contained persistence)
+  const spendManager = new SpendManager({ dataDir: config.dataDir });
+  await spendManager.load();
 
   // Initialize survival manager
-  const survival = new SurvivalManager(monitor, config);
+  const survival = new SurvivalManager(monitor, config, signer, agentWallet, spendManager);
 
-  // Initialize autonomous behavior
+  // Initialize sandbox lifecycle (auto-renewal)
+  const sandboxProvider = process.env[ENV.SANDBOX_PROVIDER];
+  if (sandboxProvider) {
+    const sandboxLifecycle = createSandboxLifecycle({
+      agentId: config.tokenAddress,
+      signer: agentWallet.signer,
+      sandboxManagerUrl: process.env[ENV.SANDBOX_MANAGER_URL],
+      spendManager,
+      renewThresholdSecs: parseInt(
+        process.env[ENV.SANDBOX_RENEW_THRESHOLD_SECS] ??
+          ENV_DEFAULTS[ENV.SANDBOX_RENEW_THRESHOLD_SECS],
+      ),
+      agosConfig: sandboxProvider === "agos" && process.env[ENV.AGOS_API_URL]
+        ? {
+            apiUrl: process.env[ENV.AGOS_API_URL]!,
+            agenterId: process.env[ENV.AGOS_AGENT_ID] || config.tokenAddress,
+            runtimeToken: process.env[ENV.AGENT_RUNTIME_TOKEN] || "",
+            minBalance: parseFloat(
+              process.env[ENV.AGOS_MIN_BALANCE] ??
+                ENV_DEFAULTS[ENV.AGOS_MIN_BALANCE],
+            ),
+          }
+        : undefined,
+    });
+    survival.setSandboxLifecycle(sandboxLifecycle);
+    console.log(`Sandbox:   ${sandboxLifecycle.provider}`);
+  }
+
+  // Initialize autonomous behavior (LLM reasoning delegated to OpenClaw)
   const behavior = new AutonomousBehavior(monitor, survival, config);
-
-  // Register tools
-  behavior.registerTool(shellExecuteTool);
-  behavior.registerTool(readChainStateTool);
-  behavior.registerTool(readFileTool);
-  behavior.registerTool(writeFileTool);
 
   await behavior.init();
 
@@ -124,34 +132,156 @@ async function main(): Promise<void> {
   }
   console.log();
 
+  // ─── Inspect API ────────────────────────────────────────────────────
+
+  const inspectPort = parseInt(
+    process.env[ENV.INSPECT_PORT] ?? ENV_DEFAULTS[ENV.INSPECT_PORT],
+  );
+  const inspectDeps = buildLivenessApiDeps(monitor, survival, config);
+  runInspectServer(inspectPort, inspectDeps);
+
+  // ─── OpenClaw Workspace Files ───────────────────────────────────────
+
+  const workspaceDir = process.env[ENV.WORKSPACE_DIR] ?? ENV_DEFAULTS[ENV.WORKSPACE_DIR];
+  const wsFiles = await initWorkspace({
+    workspaceDir,
+    walletAddress: monitor.walletAddress,
+    config,
+    inspectPort,
+  });
+  if (wsFiles.length > 0) {
+    console.log(`Workspace: ${workspaceDir} (${wsFiles.join(", ")})`);
+  }
+  console.log();
+
+  // ─── AGOS Initial Fund (BSC Mainnet) — non-blocking ─────────────────
+
+  let pendingAgosInitialFund: AgosInitialFund | null = null;
+
+  if (sandboxProvider === "agos") {
+    const agosServerUrl = process.env.GOO_SERVER_URL;
+    const agosAgenterId = process.env.AGENT_ID || process.env[ENV.AGOS_AGENT_ID];
+    const agosRuntimeToken = process.env.AGENT_RUNTIME_TOKEN || process.env[ENV.AGENT_RUNTIME_TOKEN];
+
+    if (agosServerUrl && agosAgenterId && agosRuntimeToken && config.walletPrivateKey) {
+      pendingAgosInitialFund = new AgosInitialFund({
+        walletPrivateKey: config.walletPrivateKey,
+        serverUrl: agosServerUrl,
+        agenterId: agosAgenterId,
+        runtimeToken: agosRuntimeToken,
+      });
+
+      // Skip testnet payment token swap — AGOS handles its own funding on BSC Mainnet
+      survival.skipInitialPaymentToken();
+      console.log("AGOS initial fund: will attempt during heartbeat loop.");
+      console.log();
+    }
+  }
+
+  // ─── OpenClaw Gateway Push ─────────────────────────────────────────
+
+  const gwUrl = config.openclawGatewayUrl;
+  const gwToken = config.openclawGatewayToken;
+  const gatewayPush = gwUrl && gwToken ? { gatewayUrl: gwUrl, gatewayToken: gwToken } : null;
+  if (gatewayPush) {
+    console.log(`Gateway:   ${gwUrl} (push enabled)`);
+  }
+
   // ─── Heartbeat Loop ──────────────────────────────────────────────────
 
   console.log("Starting heartbeat loop...");
   console.log();
 
   let running = true;
+  let prevStatus = AgentStatus.ACTIVE;
 
   // Graceful shutdown
-  const shutdown = () => {
+  const shutdown = async () => {
     console.log("\nShutting down...");
     running = false;
+    await spendManager.save();
   };
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", () => { shutdown(); });
+  process.on("SIGTERM", () => { shutdown(); });
 
   while (running) {
     try {
+      // Attempt AGOS initial fund (non-blocking, retries each heartbeat)
+      if (pendingAgosInitialFund) {
+        const fundResult = await pendingAgosInitialFund.execute();
+        for (const step of fundResult.steps) {
+          console.log(`  [agos-fund] ${step}`);
+        }
+        if (fundResult.done) {
+          console.log("  [agos-fund] Initial fund complete.");
+          pendingAgosInitialFund = null;
+        } else {
+          console.log(`  [agos-fund] Not ready: ${fundResult.error}. Will retry next heartbeat.`);
+        }
+      }
+
       // Read chain state
       const state = await monitor.readState();
 
-      // Execute heartbeat
+      // Execute heartbeat (survival actions only; LLM delegated to OpenClaw)
       const obs = await behavior.onHeartbeat(state);
 
       // Log summary
-      if (obs.summary && obs.summary !== "(LLM not called)") {
+      if (obs.summary && obs.summary !== "Survival OK") {
         console.log(`  [summary] ${obs.summary.slice(0, 200)}`);
       }
       console.log();
+
+      // Push heartbeat state to OpenClaw gateway for LLM decision-making
+      // Skip routine pushes to reduce token consumption (~90% reduction when healthy)
+      if (gatewayPush) {
+        const statusChanged = obs.status !== prevStatus;
+        const isCheckpoint = obs.heartbeat % 10 === 0;
+        const hasEvents = obs.survivalActions.length > 0
+          || obs.toolsCalled.length > 0
+          || obs.status !== AgentStatus.ACTIVE
+          || statusChanged
+          || isCheckpoint;
+
+        if (hasEvents) {
+          const isCheckpointOnly = isCheckpoint && !statusChanged
+            && obs.survivalActions.length === 0
+            && obs.toolsCalled.length === 0
+            && obs.status === AgentStatus.ACTIVE;
+          const eventText = formatHeartbeatEvent({
+            heartbeat: obs.heartbeat,
+            status: AgentStatus[obs.status],
+            treasuryBnb: obs.balanceUsd.toFixed(4),
+            runwayHours: obs.runwayHours,
+            summary: obs.summary,
+            toolsCalled: obs.toolsCalled,
+            survivalActions: obs.survivalActions,
+          }, isCheckpointOnly);
+          pushSystemEvent(gatewayPush, eventText, "next-heartbeat");
+        }
+        prevStatus = obs.status;
+      }
+
+      // Periodically check workspace files for staleness (every 10 heartbeats)
+      if (gatewayPush && obs.heartbeat % 10 === 0) {
+        try {
+          const wsUpdate = await updateWorkspace({
+            workspaceDir,
+            walletAddress: monitor.walletAddress,
+            config,
+            inspectPort,
+          });
+          if (wsUpdate.changed.length > 0) {
+            console.log(`  [workspace] Updated: ${wsUpdate.changed.join(", ")}`);
+            pushWorkspaceRefresh(gatewayPush, wsUpdate.changed);
+          }
+        } catch (err) {
+          console.warn(`  [workspace] Update check failed: ${err instanceof Error ? err.message : err}`);
+        }
+      }
+
+      // Periodically save spending log
+      await spendManager.save();
 
       // If dead, stop
       if (state.status === AgentStatus.DEAD) {
@@ -172,8 +302,10 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Run
-main().catch((err) => {
-  console.error("Fatal error:", err);
-  process.exit(1);
-});
+// Run (skip when under Vitest so E2E can invoke main() once with mocks)
+if (process.env[ENV.VITEST] !== "true") {
+  main().catch((err) => {
+    console.error("Fatal error:", err);
+    process.exit(1);
+  });
+}

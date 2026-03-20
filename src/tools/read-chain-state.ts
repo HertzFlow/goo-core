@@ -21,17 +21,17 @@ export const readChainStateTool: AgentTool = {
   ): Promise<string> {
     const s = ctx.chainState;
     const statusName = AgentStatus[s.status];
-    const balanceUsd = formatUsd(s.treasuryBalance, s.stableDecimals);
-    const thresholdUsd = formatUsd(s.starvingThreshold, s.stableDecimals);
-    const burnUsd = formatUsd(s.fixedBurnRate, s.stableDecimals);
+    const treasuryBnb = formatBnb(s.treasuryBalance);
+    const thresholdBnb = formatBnb(s.starvingThreshold);
+    const burnBnb = formatBnb(s.fixedBurnRate);
 
     const lines = [
       `Status: ${statusName}`,
-      `Treasury Balance: $${balanceUsd}`,
-      `Starving threshold: $${thresholdUsd}`,
-      `Daily Burn Rate: $${burnUsd}/day`,
+      `Treasury Balance: ${treasuryBnb} BNB`,
+      `Starving threshold: ${thresholdBnb} BNB`,
+      `Daily Burn Rate: ${burnBnb} BNB/day`,
       `Estimated Runway: ${s.runwayHours} hours (~${Math.floor(s.runwayHours / 24)} days)`,
-      `Native Balance: ${ethers.formatEther(s.nativeBalance)} (for gas)`,
+      `Native Balance: ${ethers.formatEther(s.nativeBalance)} BNB (wallet)`,
       `Token Holdings: ${ethers.formatEther(s.tokenHoldings)} tokens`,
       `Total Supply: ${ethers.formatEther(s.totalSupply)} tokens`,
       `Last Pulse: ${new Date(Number(s.lastPulseAt) * 1000).toISOString()}`,
@@ -48,7 +48,7 @@ export const readChainStateTool: AgentTool = {
   },
 };
 
-function formatUsd(amount: bigint, decimals: number): string {
-  const formatted = ethers.formatUnits(amount, decimals);
-  return parseFloat(formatted).toFixed(2);
+function formatBnb(amount: bigint): string {
+  const formatted = ethers.formatEther(amount);
+  return parseFloat(formatted).toFixed(4);
 }

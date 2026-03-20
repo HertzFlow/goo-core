@@ -1,7 +1,7 @@
 # Goo Agent Core
 # Economic sidecar + autonomous behavior layer
 #
-# Build:  docker build -t goo-core ./core
+# Build:  docker build -t goo-core .
 # Run:    docker run --env-file .env -v /opt/data:/opt/data goo-core
 
 FROM node:22-slim AS builder

@@ -1,3 +1,6 @@
+import type { AgentWallet } from "./finance/wallet.js";
+import type { SpendManager } from "./finance/spend.js";
+
 // ─── Agent Status (mirrors on-chain enum) ───────────────────────────────
 
 export enum AgentStatus {
@@ -11,11 +14,11 @@ export enum AgentStatus {
 
 export interface ChainState {
   status: AgentStatus;
-  treasuryBalance: bigint; // stablecoin balance (raw)
-  starvingThreshold: bigint; // minimum balance before Starving
-  fixedBurnRate: bigint; // daily burn in stablecoin units
+  treasuryBalance: bigint; // BNB balance (wei) — contract + wallet
+  starvingThreshold: bigint; // minimum balance before Starving (wei)
+  fixedBurnRate: bigint; // daily burn in BNB (wei)
   minRunwayHours: bigint;
-  nativeBalance: bigint; // BNB/ETH balance of agent wallet
+  nativeBalance: bigint; // BNB balance of agent wallet (wei)
   tokenHoldings: bigint; // agent token balance of contract
   totalSupply: bigint;
   lastPulseAt: bigint; // unix timestamp (last Pulse / proof-of-life)
@@ -23,7 +26,6 @@ export interface ChainState {
   dyingEnteredAt: bigint;
   // Derived
   runwayHours: number; // treasuryBalance / (fixedBurnRate / 24)
-  stableDecimals: number;
 }
 
 // ─── Runtime Configuration ──────────────────────────────────────────────
@@ -33,18 +35,16 @@ export interface RuntimeConfig {
   rpcUrl: string;
   chainId: number;
   tokenAddress: string;
-  walletPrivateKey: string;
+  walletPrivateKeyFile?: string;
+  walletPrivateKey?: string;
 
-  // LLM
-  llmApiUrl: string; // OpenAI-compatible endpoint
+  // LLM (informational — actual calls delegated to OpenClaw)
+  llmApiUrl: string;
   llmApiKey: string;
-  llmModel: string; // e.g. "deepseek/deepseek-chat"
-  llmMaxTokens: number;
-  llmTimeoutMs: number;
+  llmModel: string;
 
   // Runtime behavior
   heartbeatIntervalMs: number; // default: 30_000 (30s)
-  maxToolRoundsPerHeartbeat: number; // default: 5
   dataDir: string; // persistent data directory
 
   // Deployer uploads (file paths or content)
@@ -58,6 +58,14 @@ export interface RuntimeConfig {
   // Survival thresholds
   minGasBalance: bigint; // below this: refill gas
   gasRefillAmount: bigint; // how much to refill
+  minWalletBnb: number; // minimum BNB in wallet for operations (default: 0.01)
+
+  // x402 payment token (USDT address — agent swaps BNB→USDT for LLM/VPS payments)
+  x402PaymentToken?: string;
+
+  // OpenClaw gateway (push heartbeat summaries to UI)
+  openclawGatewayUrl?: string; // e.g. "http://127.0.0.1:19789"
+  openclawGatewayToken?: string;
 
   // Optional: buyback
   buyback?: {
@@ -79,36 +87,14 @@ export interface ToolContext {
   chainState: ChainState;
   config: RuntimeConfig;
   dataDir: string;
+  workspaceDir: string;
+  agentWallet?: AgentWallet;
+  spendManager?: SpendManager;
 }
 
 export interface AgentTool {
   definition: ToolDefinition;
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<string>;
-}
-
-// ─── LLM Types ──────────────────────────────────────────────────────────
-
-export interface ChatMessage {
-  role: "system" | "user" | "assistant" | "tool";
-  content: string | null;
-  tool_calls?: ToolCall[];
-  tool_call_id?: string;
-}
-
-export interface ToolCall {
-  id: string;
-  type: "function";
-  function: {
-    name: string;
-    arguments: string; // JSON string
-  };
-}
-
-export interface LLMResult {
-  response: string;
-  toolsUsed: string[];
-  shellCommands: string[]; // actual shell_execute commands for grounding
-  rounds: number;
 }
 
 // ─── Observation (memory entry) ─────────────────────────────────────────
@@ -136,4 +122,61 @@ export interface RuntimeEvent {
   heartbeat: number;
   timestamp: string;
   data: Record<string, unknown>;
+}
+
+// ─── Liveness & Inspection (Goo Agent proof / public API) ────────────────
+
+/** Payload for GET /liveness — proves agent is alive and is a Goo Agent. */
+export interface LivenessPayload {
+  /** Protocol identifier */
+  protocol: "goo";
+  /** Current lifecycle status (ACTIVE / STARVING / DYING / DEAD) */
+  status: string;
+  /** Unix timestamp of last emitPulse() */
+  lastPulseAt: number;
+  /** Treasury balance (human-readable) */
+  treasuryBalanceUsd: string;
+  /** Estimated runway in hours */
+  runwayHours: number;
+  /** Token contract address */
+  tokenAddress: string;
+  /** Chain ID */
+  chainId: number;
+  /** When this payload was generated (ISO string) */
+  timestamp: string;
+}
+
+/** Full inspection payload for GET /inspect — all internal state for verification. */
+export interface AgentInspectionPayload {
+  protocol: "goo";
+  timestamp: string;
+  liveness: LivenessPayload;
+  chain: {
+    status: string;
+    treasuryBalance: string;
+    starvingThreshold: string;
+    fixedBurnRate: string;
+    nativeBalance: string;
+    tokenHoldings: string;
+    totalSupply: string;
+    runwayHours: number;
+    lastPulseAt: number;
+    starvingEnteredAt: number;
+    dyingEnteredAt: number;
+  };
+  survival: {
+    lastActions: string[];
+    gasWarning: boolean;
+  };
+  token: {
+    address: string;
+    holdings: string;
+    totalSupply: string;
+  };
+  llm: {
+    model: string;
+    apiUrl: string;
+    configured: boolean;
+  };
+  threeLaws: string;
 }

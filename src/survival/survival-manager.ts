@@ -10,6 +10,7 @@ import { ensurePaymentToken } from "../finance/action/payment-token-refill.js";
 import { executeBuyback } from "../finance/action/buyback.js";
 import { emitEvent } from "../events.js";
 import type { SandboxLifecycle } from "./sandbox-lifecycle.js";
+import { MaiatReputation, type ReputationConfig } from "../reputation/index.js";
 
 
 /**
@@ -27,6 +28,7 @@ export class SurvivalManager {
   private agentWallet?: AgentWallet;
   private spendManager?: SpendManager;
   private sandboxLifecycle?: SandboxLifecycle;
+  private maiatReputation?: MaiatReputation;
   /** Once initial AIOU fund succeeds (or balance already sufficient), stop auto-refilling */
   private initialPaymentTokenDone = false;
 
@@ -49,6 +51,15 @@ export class SurvivalManager {
 
   setSandboxLifecycle(lifecycle: SandboxLifecycle): void {
     this.sandboxLifecycle = lifecycle;
+  }
+
+  /**
+   * Enable Maiat reputation tracking for this agent.
+   * When enabled, trust scores are checked every heartbeat and
+   * reputation data is surfaced alongside survival actions.
+   */
+  setMaiatReputation(agentAddress: string, config?: Partial<ReputationConfig>): void {
+    this.maiatReputation = new MaiatReputation(agentAddress, config);
   }
 
   /** Mark initial payment token fund as done (e.g. AGOS handles its own funding on BSC Mainnet). */
@@ -190,6 +201,17 @@ export class SurvivalManager {
         const msg = err instanceof Error ? err.message : String(err);
         actions.push(`Sandbox check error: ${msg}`);
         emitEvent("sandbox_check_error", "error", msg);
+      }
+    }
+
+    // 7. Maiat Reputation — check trust score and surface reputation data
+    if (this.maiatReputation) {
+      try {
+        const reputationActions = await this.maiatReputation.evaluate();
+        actions.push(...reputationActions);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        actions.push(`Maiat reputation check error: ${msg}`);
       }
     }
 

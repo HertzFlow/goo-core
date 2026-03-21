@@ -118,6 +118,19 @@ export async function main(): Promise<void> {
     console.log(`Sandbox:   ${sandboxLifecycle.provider}`);
   }
 
+  // Initialize Maiat reputation (optional — enabled by default)
+  const maiatEnabled = process.env.MAIAT_REPUTATION_ENABLED !== "false";
+  if (maiatEnabled) {
+    const agentAddr = await signer.getAddress();
+    survival.setMaiatReputation(agentAddr, {
+      apiUrl: process.env.MAIAT_API_URL || "https://app.maiat.io",
+      refreshIntervalSecs: parseInt(process.env.MAIAT_REFRESH_INTERVAL || "3600"),
+      benefitThreshold: parseInt(process.env.MAIAT_BENEFIT_THRESHOLD || "60"),
+      warningThreshold: parseInt(process.env.MAIAT_WARNING_THRESHOLD || "30"),
+    });
+    console.log(`Maiat:     reputation tracking enabled (${process.env.MAIAT_API_URL || "https://app.maiat.io"})`);
+  }
+
   // Initialize autonomous behavior (LLM reasoning delegated to OpenClaw)
   const behavior = new AutonomousBehavior(monitor, survival, config);
 

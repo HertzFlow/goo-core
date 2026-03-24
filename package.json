@@ -1,6 +1,6 @@
 {
-  "name": "@devbond/gc",
-  "version": "2.3.1",
+  "name": "@hertzflow/goo-core",
+  "version": "2.4.5",
   "description": "Goo Agent Core — economic sidecar + autonomous behavior",
   "type": "module",
   "main": "dist/index.js",

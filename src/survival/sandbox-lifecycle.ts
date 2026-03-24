@@ -2,12 +2,11 @@
  * sandbox-lifecycle.ts — Abstract sandbox lifecycle management.
  *
  * Provides a unified interface for checking sandbox health and auto-renewing
- * across different providers (e2b, AGOS, BYOD).
+ * across different providers (e2b, AGOS).
  *
  * Each provider has different renewal semantics:
  * - e2b:  time-based expiry, renewed via x402 payment to sandbox-manager
  * - AGOS: balance-based, auto-topup from agent wallet when funds are low
- * - BYOD: self-hosted, no renewal needed (noop)
  */
 
 import { ethers } from "ethers";
@@ -18,11 +17,12 @@ import {
   type SandboxPaymentConfig,
   type SandboxInfo,
 } from "../finance/action/sandbox-payment.js";
+import { AgosInitialFund } from "../finance/action/agos-initial-fund.js";
 import { emitEvent } from "../events.js";
 
 // ─── Abstract Interface ──────────────────────────────────────────────────
 
-export type SandboxProviderType = "e2b" | "agos" | "byod" | "none";
+export type SandboxProviderType = "e2b" | "agos" | "none";
 
 export interface SandboxHealth {
   provider: SandboxProviderType;
@@ -169,29 +169,41 @@ export interface AgosConfig {
   agenterId: string;
   /** Runtime auth token for goo-server proxy calls */
   runtimeToken: string;
-  /** Minimum AIOU balance before warning (default: 5) */
+  /** Minimum AIOU balance before warning (default: 10) */
   minBalance?: number;
+  /** Agent wallet private key for BSC Mainnet auto-topup. If unset, warn only. */
+  walletPrivateKey?: string;
+  /** AIOU amount to fund per topup (default: "10") */
+  topupAmount?: string;
 }
 
 interface AgosBalanceResponse {
   ok: boolean;
   data: {
-    balance: number;
-    currency?: string;
+    availableBalance: string;
+    frozenBalance: string;
+    spentTotal: string;
   };
 }
 
 /**
  * AGOS sandbox: balance-based.
- * Checks AGOS account balance and warns when low.
- * Cannot auto-topup (requires user wallet signature), but reports status.
+ * Checks AGOS account balance and auto-tops up from agent wallet when low.
+ * When walletPrivateKey is provided, uses AgosInitialFund to do the full
+ * BNB→USDT→AIOU→EIP-3009 flow on BSC Mainnet. Falls back to warn-only if no key.
  */
 export class AgosSandboxLifecycle implements SandboxLifecycle {
   readonly provider: SandboxProviderType = "agos";
   private minBalance: number;
+  private topupAmount: string;
+  /** Timestamp of last topup attempt (ms) — cooldown prevents spamming */
+  private lastTopupAttemptMs = 0;
+  /** Cooldown between topup attempts: 5 minutes */
+  private static readonly TOPUP_COOLDOWN_MS = 5 * 60 * 1000;
 
   constructor(private config: AgosConfig) {
     this.minBalance = config.minBalance ?? 10;
+    this.topupAmount = config.topupAmount ?? "10";
   }
 
   async check(): Promise<SandboxHealth> {
@@ -209,12 +221,31 @@ export class AgosSandboxLifecycle implements SandboxLifecycle {
       };
     }
 
+    // Topup threshold: half of minBalance (e.g. 5 AIOU when minBalance=10)
+    const topupThreshold = this.minBalance / 2;
+
     if (balance <= 0) {
       emitEvent("sandbox_agos_depleted", "error", `AGOS balance depleted (${balance})`);
+      if (this.config.walletPrivateKey) {
+        return this.tryAutoTopup(balance);
+      }
       return {
         provider: this.provider,
         healthy: false,
         status: `AGOS balance depleted (${balance}). Needs manual top-up.`,
+        renewed: false,
+      };
+    }
+
+    if (balance < topupThreshold) {
+      if (this.config.walletPrivateKey) {
+        return this.tryAutoTopup(balance);
+      }
+      emitEvent("sandbox_agos_low", "warn", `AGOS balance low: ${balance}`);
+      return {
+        provider: this.provider,
+        healthy: true,
+        status: `AGOS balance low (${balance}). Consider top-up.`,
         renewed: false,
       };
     }
@@ -237,8 +268,73 @@ export class AgosSandboxLifecycle implements SandboxLifecycle {
     };
   }
 
+  private async tryAutoTopup(currentBalance: number): Promise<SandboxHealth> {
+    // Cooldown: skip if last attempt was too recent
+    const now = Date.now();
+    if (now - this.lastTopupAttemptMs < AgosSandboxLifecycle.TOPUP_COOLDOWN_MS) {
+      const waitSecs = Math.ceil(
+        (AgosSandboxLifecycle.TOPUP_COOLDOWN_MS - (now - this.lastTopupAttemptMs)) / 1000,
+      );
+      return {
+        provider: this.provider,
+        healthy: currentBalance > 0,
+        status: `AGOS balance low (${currentBalance}). Auto-topup on cooldown (${waitSecs}s).`,
+        renewed: false,
+      };
+    }
+
+    this.lastTopupAttemptMs = now;
+
+    try {
+      console.log("[agos-auto-topup] Balance low, attempting auto-topup...");
+      const funder = new AgosInitialFund({
+        walletPrivateKey: this.config.walletPrivateKey!,
+        serverUrl: this.config.apiUrl,
+        agenterId: this.config.agenterId,
+        runtimeToken: this.config.runtimeToken,
+        targetAiou: this.topupAmount,
+      });
+
+      const result = await funder.execute();
+      for (const step of result.steps) {
+        console.log(`  [agos-auto-topup] ${step}`);
+      }
+
+      if (result.done) {
+        emitEvent("agos_auto_topup_ok", "info", `Auto-topup complete (was ${currentBalance} AIOU)`);
+        return {
+          provider: this.provider,
+          healthy: true,
+          status: `AGOS auto-topup OK (was ${currentBalance} AIOU)`,
+          renewed: true,
+        };
+      }
+
+      // Topup not done (e.g. insufficient BNB) — warn but don't crash
+      const errMsg = result.error || "unknown";
+      emitEvent("agos_auto_topup_failed", "warn", `Auto-topup failed: ${errMsg}`);
+      return {
+        provider: this.provider,
+        healthy: currentBalance > 0,
+        status: `AGOS auto-topup failed: ${errMsg} (balance: ${currentBalance})`,
+        renewed: false,
+        error: errMsg,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      emitEvent("agos_auto_topup_failed", "warn", `Auto-topup error: ${msg}`);
+      return {
+        provider: this.provider,
+        healthy: currentBalance > 0,
+        status: `AGOS auto-topup error: ${msg} (balance: ${currentBalance})`,
+        renewed: false,
+        error: msg,
+      };
+    }
+  }
+
   private async fetchBalance(): Promise<number> {
-    const url = `${this.config.apiUrl}/api/agos/agents/${this.config.agenterId}/balance`;
+    const url = `${this.config.apiUrl}/api/agos/agents/${this.config.agenterId}/rt/balance`;
     const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${this.config.runtimeToken}`,
@@ -249,26 +345,7 @@ export class AgosSandboxLifecycle implements SandboxLifecycle {
       throw new Error(`${res.status}: ${body}`);
     }
     const data = (await res.json()) as AgosBalanceResponse;
-    return data.data.balance;
-  }
-}
-
-// ─── BYOD Provider ───────────────────────────────────────────────────────
-
-/**
- * BYOD sandbox: self-hosted, no renewal needed.
- * Always returns healthy — the user manages their own infrastructure.
- */
-export class ByodSandboxLifecycle implements SandboxLifecycle {
-  readonly provider: SandboxProviderType = "byod";
-
-  async check(): Promise<SandboxHealth> {
-    return {
-      provider: this.provider,
-      healthy: true,
-      status: "BYOD (self-hosted)",
-      renewed: false,
-    };
+    return parseFloat(data.data.availableBalance) || 0;
   }
 }
 
@@ -313,7 +390,6 @@ export interface SandboxLifecycleFactoryParams {
  * Reads process.env.SANDBOX_PROVIDER:
  * - "e2b"  → E2bSandboxLifecycle (requires sandboxManagerUrl + signer)
  * - "agos" → AgosSandboxLifecycle (requires agosConfig)
- * - "byod" → ByodSandboxLifecycle (noop)
  * - unset  → NoopSandboxLifecycle
  */
 export function createSandboxLifecycle(
@@ -348,11 +424,6 @@ export function createSandboxLifecycle(
       }
       console.log(`[sandbox-lifecycle] agos provider (min balance: ${params.agosConfig.minBalance ?? 10})`);
       return new AgosSandboxLifecycle(params.agosConfig);
-    }
-
-    case "byod": {
-      console.log("[sandbox-lifecycle] byod provider (self-hosted, no renewal)");
-      return new ByodSandboxLifecycle();
     }
 
     default: {

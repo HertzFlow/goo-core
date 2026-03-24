@@ -8,7 +8,7 @@ describe("read_chain_state tool", () => {
     const out = await readChainStateTool.execute({}, { chainState: state, config: {} as never, dataDir: "/tmp" });
     expect(out).toContain("ACTIVE");
     expect(out).toContain("Treasury Balance");
-    expect(out).toContain("Runway");
+    expect(out).toContain("Dying Threshold");
     expect(out).toContain("Native Balance");
     expect(out).toContain("Token Holdings");
     expect(out).toContain("Last Pulse");

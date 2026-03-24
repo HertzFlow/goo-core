@@ -28,15 +28,15 @@ const e2eHoisted = vi.hoisted(() => {
     status: 3, // AgentStatus.DEAD
     treasuryBalance: 0n,
     starvingThreshold: 0n,
-    fixedBurnRate: 0n,
-    minRunwayHours: 0n,
+    dyingThreshold: 20000000000000000n,
     nativeBalance: 0n,
     tokenHoldings: 0n,
     totalSupply: 0n,
     lastPulseAt: 0n,
     starvingEnteredAt: 0n,
     dyingEnteredAt: 0n,
-    runwayHours: 0,
+    owner: "0x0000000000000000000000000000000000000001",
+    paused: false,
   };
 
   return {
@@ -116,7 +116,6 @@ describe("goo-core E2E: sandbox + gateway push branches", () => {
       RPC_URL: process.env.RPC_URL,
       TOKEN_ADDRESS: process.env.TOKEN_ADDRESS,
       AGENT_PRIVATE_KEY_FILE: process.env.AGENT_PRIVATE_KEY_FILE,
-      LLM_API_KEY: process.env.LLM_API_KEY,
       DATA_DIR: process.env.DATA_DIR,
       WORKSPACE_DIR: process.env.WORKSPACE_DIR,
       SANDBOX_PROVIDER: process.env.SANDBOX_PROVIDER,
@@ -130,7 +129,6 @@ describe("goo-core E2E: sandbox + gateway push branches", () => {
     process.env.RPC_URL = "https://bsc-dataseed.test.org";
     process.env.TOKEN_ADDRESS = "0x1111111111111111111111111111111111111111111111111111111111111111";
     process.env.AGENT_PRIVATE_KEY_FILE = join(walletDir, "private-key");
-    process.env.LLM_API_KEY = "test-key";
     process.env.DATA_DIR = dataDir;
     process.env.WORKSPACE_DIR = workspaceDir;
     process.env.HEARTBEAT_INTERVAL_MS = "10"; // finish quickly
@@ -143,7 +141,7 @@ describe("goo-core E2E: sandbox + gateway push branches", () => {
     e2eHoisted.mockMonitorInstance.readState
       .mockReset()
       .mockResolvedValueOnce(makeChainState({ status: AgentStatus.ACTIVE }))
-      .mockResolvedValueOnce(makeChainState({ status: AgentStatus.DEAD, treasuryBalance: 0n, runwayHours: 0 }));
+      .mockResolvedValueOnce(makeChainState({ status: AgentStatus.DEAD, treasuryBalance: 0n }));
 
     // ACTIVE heartbeat: emitPulse is mocked as vi.fn() (undefined return), so pulse will fail and still produce an action.
     // Sandbox lifecycle: return a short remaining time so SurvivalManager pushes `Sandbox: ...`.
@@ -201,4 +199,3 @@ describe("goo-core E2E: sandbox + gateway push branches", () => {
     expect(texts.some((t) => t.includes("Status=DEAD"))).toBe(true);
   }, 15000);
 });
-

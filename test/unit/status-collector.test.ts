@@ -81,8 +81,9 @@ describe("status-collector", () => {
       expect(payload.chain).toBeDefined();
       expect(payload.chain.status).toBe("ACTIVE");
       expect(typeof payload.chain.treasuryBalance).toBe("string");
-      expect(typeof payload.chain.runwayHours).toBe("number");
       expect(typeof payload.chain.lastPulseAt).toBe("number");
+      expect(typeof payload.chain.owner).toBe("string");
+      expect(typeof payload.chain.paused).toBe("boolean");
 
       expect(payload.survival).toBeDefined();
       expect(payload.survival.lastActions).toEqual(survivalActions);
@@ -95,8 +96,7 @@ describe("status-collector", () => {
 
       expect(payload.llm).toBeDefined();
       expect(payload.llm.model).toBe(mockRuntimeConfig.llmModel);
-      expect(payload.llm.apiUrl).toBe(mockRuntimeConfig.llmApiUrl);
-      expect(payload.llm.configured).toBe(true);
+      expect(payload.llm.via).toBe("openclaw");
 
       expect(payload.threeLaws).toBe(threeLaws);
     });

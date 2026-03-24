@@ -17,18 +17,19 @@ export function buildHeartbeatContext(
   const statusName = AgentStatus[state.status];
   const treasuryBnb = formatBnb(state.treasuryBalance);
   const thresholdBnb = formatBnb(state.starvingThreshold);
-  const burnRateBnb = formatBnb(state.fixedBurnRate);
+  const dyingThresholdBnb = formatBnb(state.dyingThreshold);
   const nativeBal = ethers.formatEther(state.nativeBalance);
 
   sections.push(
     `## On-Chain Status (real-time, from smart contract — these are FACTS, do not fabricate)`,
     `- **Status**: ${statusName}`,
     `- **Treasury Balance**: ${treasuryBnb} BNB`,
-    `- **Starving threshold**: ${thresholdBnb} BNB`,
-    `- **Daily Burn Rate**: ${state.fixedBurnRate > 0n ? `${burnRateBnb} BNB/day` : 'N/A (balance-based)'}`,
-    `- **Estimated Runway**: ${state.fixedBurnRate > 0n ? `${state.runwayHours} hours (~${Math.floor(state.runwayHours / 24)} days)` : 'N/A (balance-based)'}`,
+    `- **Starving Threshold**: ${thresholdBnb} BNB`,
+    `- **Dying Threshold**: ${dyingThresholdBnb} BNB`,
     `- **Wallet BNB Balance**: ${nativeBal} (for gas + treasury)`,
     `- **Token Holdings**: ${ethers.formatEther(state.tokenHoldings)} tokens (contract-held)`,
+    `- **Owner**: ${state.owner}`,
+    `- **Paused**: ${state.paused}`,
     ``,
   );
 
@@ -49,13 +50,6 @@ export function buildHeartbeatContext(
       `- Anyone can become Successor (CTO) by claiming on your contract.`,
       `- If you stop emitting Pulse or DYING_MAX_DURATION expires, you go Dead.`,
       `**Priority**: SURVIVE. Recovery = deposit or Successor/CTO; every action should aim at treasury recovery.`,
-      ``,
-    );
-  } else if (state.fixedBurnRate > 0n && state.runwayHours < 72 && state.status === AgentStatus.ACTIVE) {
-    sections.push(
-      `## Runway Alert`,
-      `Your runway is only ${state.runwayHours} hours (~${Math.floor(state.runwayHours / 24)} days).`,
-      `Start planning cost reduction or revenue generation before you hit Starving.`,
       ``,
     );
   }

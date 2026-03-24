@@ -11,8 +11,6 @@ export const ENV = {
   TOKEN_ADDRESS: "TOKEN_ADDRESS",
   AGENT_PRIVATE_KEY_FILE: "AGENT_PRIVATE_KEY_FILE",
   WALLET_PRIVATE_KEY: "WALLET_PRIVATE_KEY",
-  LLM_API_URL: "OPENAI_BASE_URL",
-  LLM_API_KEY: "OPENAI_API_KEY",
   LLM_MODEL: "LLM_MODEL",
   HEARTBEAT_INTERVAL_MS: "HEARTBEAT_INTERVAL_MS",
   DATA_DIR: "DATA_DIR",
@@ -32,7 +30,6 @@ export const ENV = {
   AGOS_MIN_BALANCE: "AGOS_MIN_BALANCE",
   WORKSPACE_DIR: "WORKSPACE_DIR",
   INSPECT_PORT: "INSPECT_PORT",
-  EVENT_CALLBACK_URL: "EVENT_CALLBACK_URL",
   OPENCLAW_GATEWAY_URL: "OPENCLAW_GATEWAY_URL",
   OPENCLAW_GATEWAY_TOKEN: "OPENCLAW_GATEWAY_TOKEN",
   VITEST: "VITEST",
@@ -42,7 +39,6 @@ export const ENV = {
 export const ENV_DEFAULTS: Record<string, string> = {
   [ENV.CHAIN_ID]: "97",
   [ENV.DATA_DIR]: "/opt/data",
-  [ENV.LLM_API_URL]: "https://openrouter.ai/api/v1",
   [ENV.LLM_MODEL]: "deepseek/deepseek-chat",
   [ENV.HEARTBEAT_INTERVAL_MS]: "30000",
   [ENV.MIN_GAS_BALANCE]: "10000000000000000",
@@ -62,14 +58,15 @@ export const TOKEN_ABI = [
   "function getAgentStatus() view returns (uint8)",
   "function treasuryBalance() view returns (uint256)",
   "function starvingThreshold() view returns (uint256)",
-  "function fixedBurnRate() view returns (uint256)",
-  "function minRunwayHours() view returns (uint256)",
+  "function dyingThreshold() view returns (uint256)",
   "function lastPulseAt() view returns (uint256)",
   "function starvingEnteredAt() view returns (uint256)",
   "function dyingEnteredAt() view returns (uint256)",
   "function totalSupply() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
   "function agentWallet() view returns (address)",
+  "function owner() view returns (address)",
+  "function paused() view returns (bool)",
   "function WRAPPED_NATIVE() view returns (address)",
   "function swapExecutor() view returns (address)",
   "function MAX_SELL_BPS_VALUE() view returns (uint256)",
@@ -87,6 +84,10 @@ export const TOKEN_WRITE_ABI = [
   "function MAX_SELL_BPS_VALUE() view returns (uint256)",
   "function SURVIVAL_SELL_COOLDOWN_SECS() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
+] as const;
+
+export const TOKEN_LIFECYCLE_ABI = [
+  "function triggerLifecycle() returns (uint8)",
 ] as const;
 
 // ─── Pulse ──────────────────────────────────────────────────────────────

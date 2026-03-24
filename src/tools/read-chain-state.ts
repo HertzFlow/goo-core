@@ -23,18 +23,19 @@ export const readChainStateTool: AgentTool = {
     const statusName = AgentStatus[s.status];
     const treasuryBnb = formatBnb(s.treasuryBalance);
     const thresholdBnb = formatBnb(s.starvingThreshold);
-    const burnBnb = formatBnb(s.fixedBurnRate);
+    const dyingThresholdBnb = formatBnb(s.dyingThreshold);
 
     const lines = [
       `Status: ${statusName}`,
       `Treasury Balance: ${treasuryBnb} BNB`,
-      `Starving threshold: ${thresholdBnb} BNB`,
-      `Daily Burn Rate: ${burnBnb} BNB/day`,
-      `Estimated Runway: ${s.runwayHours} hours (~${Math.floor(s.runwayHours / 24)} days)`,
+      `Starving Threshold: ${thresholdBnb} BNB`,
+      `Dying Threshold: ${dyingThresholdBnb} BNB`,
       `Native Balance: ${ethers.formatEther(s.nativeBalance)} BNB (wallet)`,
       `Token Holdings: ${ethers.formatEther(s.tokenHoldings)} tokens`,
       `Total Supply: ${ethers.formatEther(s.totalSupply)} tokens`,
       `Last Pulse: ${new Date(Number(s.lastPulseAt) * 1000).toISOString()}`,
+      `Owner: ${s.owner}`,
+      `Paused: ${s.paused}`,
     ];
 
     if (s.starvingEnteredAt > 0n) {

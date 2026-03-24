@@ -5,12 +5,13 @@ import { makeChainState } from "../helpers/fixtures.js";
 
 describe("buildHeartbeatContext", () => {
   it("includes On-Chain Status for ACTIVE", () => {
-    const state = makeChainState({ status: AgentStatus.ACTIVE, runwayHours: 100 });
+    const state = makeChainState({ status: AgentStatus.ACTIVE });
     const out = buildHeartbeatContext(state, [], []);
     expect(out).toContain("On-Chain Status");
     expect(out).toContain("ACTIVE");
     expect(out).toContain("Treasury Balance");
-    expect(out).toContain("Runway");
+    expect(out).toContain("Starving Threshold");
+    expect(out).toContain("Dying Threshold");
     expect(out).not.toContain("⚠ Starving");
     expect(out).not.toContain("🚨 Dying");
   });
@@ -39,11 +40,12 @@ describe("buildHeartbeatContext", () => {
     expect(out).toContain("Successor (CTO)");
   });
 
-  it("includes Runway Alert when ACTIVE and runway < 72", () => {
-    const state = makeChainState({ status: AgentStatus.ACTIVE, runwayHours: 48 });
+  it("includes owner and paused in status", () => {
+    const state = makeChainState({ status: AgentStatus.ACTIVE, paused: true });
     const out = buildHeartbeatContext(state, [], []);
-    expect(out).toContain("Runway Alert");
-    expect(out).toContain("48");
+    expect(out).toContain("Owner");
+    expect(out).toContain("Paused");
+    expect(out).toContain("true");
   });
 
   it("includes MAINTENANCE LOOP WARNING when most recent commands are df/free/ps", () => {
@@ -54,7 +56,7 @@ describe("buildHeartbeatContext", () => {
         timestamp: new Date().toISOString(),
         status: AgentStatus.ACTIVE,
         balanceUsd: 10,
-        runwayHours: 24,
+        runwayHours: 0,
         summary: "",
         toolsCalled: ["shell_execute"],
         shellCommands: ["df -h"],
@@ -64,7 +66,7 @@ describe("buildHeartbeatContext", () => {
         timestamp: new Date().toISOString(),
         status: AgentStatus.ACTIVE,
         balanceUsd: 10,
-        runwayHours: 24,
+        runwayHours: 0,
         summary: "",
         toolsCalled: ["shell_execute"],
         shellCommands: ["free -m"],
@@ -74,7 +76,7 @@ describe("buildHeartbeatContext", () => {
         timestamp: new Date().toISOString(),
         status: AgentStatus.ACTIVE,
         balanceUsd: 10,
-        runwayHours: 24,
+        runwayHours: 0,
         summary: "",
         toolsCalled: ["shell_execute"],
         shellCommands: ["ps aux"],
@@ -102,7 +104,7 @@ describe("buildHeartbeatContext", () => {
         timestamp: "2026-03-05T12:00:00.000Z",
         status: AgentStatus.ACTIVE,
         balanceUsd: 15.5,
-        runwayHours: 24,
+        runwayHours: 0,
         summary: "",
         toolsCalled: ["read_chain_state"],
         shellCommands: [],
@@ -129,7 +131,7 @@ describe("buildHeartbeatContext", () => {
         timestamp: "2026-03-05T12:00:00.000Z",
         status: AgentStatus.ACTIVE,
         balanceUsd: 1,
-        runwayHours: 10,
+        runwayHours: 0,
         summary: longSummary,
         toolsCalled: [],
         shellCommands: [],

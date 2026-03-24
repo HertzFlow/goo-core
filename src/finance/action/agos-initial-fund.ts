@@ -50,7 +50,7 @@ async function fetchAgosBalance(
   agenterId: string,
   runtimeToken: string,
 ): Promise<AgosBalanceData> {
-  const url = `${serverUrl}/api/agos/agents/${agenterId}/balance`;
+  const url = `${serverUrl}/api/agos/agents/${agenterId}/rt/balance`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${runtimeToken}` },
     signal: AbortSignal.timeout(10000),
@@ -68,7 +68,7 @@ async function startFundingChallenge(
   runtimeToken: string,
   amount: string,
 ): Promise<{ needsPayment: boolean; challenge?: FundChallenge }> {
-  const url = `${serverUrl}/api/agos/agents/${agenterId}/fund`;
+  const url = `${serverUrl}/api/agos/agents/${agenterId}/rt/fund`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -96,7 +96,7 @@ async function settleFunding(
   runtimeToken: string,
   payload: unknown,
 ): Promise<{ amount: string; deployTriggered: boolean; txHash: string }> {
-  const url = `${serverUrl}/api/agos/agents/${agenterId}/fund/settle`;
+  const url = `${serverUrl}/api/agos/agents/${agenterId}/rt/fund/settle`;
   const res = await fetch(url, {
     method: "POST",
     headers: {

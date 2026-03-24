@@ -30,9 +30,6 @@ describe("env (ENV keys and ENV_DEFAULTS)", () => {
         expect(typeof (ENV as Record<string, string>)[key]).toBe("string");
         expect((ENV as Record<string, string>)[key]).toBe(key);
       }
-      // Renamed env vars
-      expect(ENV.LLM_API_KEY).toBe("OPENAI_API_KEY");
-      expect(ENV.LLM_API_URL).toBe("OPENAI_BASE_URL");
     });
 
     it("ENV values are non-empty strings", () => {
@@ -48,7 +45,6 @@ describe("env (ENV keys and ENV_DEFAULTS)", () => {
       const optionalKeys = [
         ENV.CHAIN_ID,
         ENV.DATA_DIR,
-        ENV.LLM_API_URL,
         ENV.LLM_MODEL,
         ENV.HEARTBEAT_INTERVAL_MS,
         ENV.MIN_GAS_BALANCE,
@@ -115,7 +111,6 @@ describe("env (ENV keys and ENV_DEFAULTS)", () => {
           [ENV.RPC_URL]: "https://rpc.example.com",
           [ENV.TOKEN_ADDRESS]: "0x111111111111111111111111111111111111111111",
           [ENV.AGENT_PRIVATE_KEY_FILE]: keyFile,
-          [ENV.LLM_API_KEY]: "key",
         };
       expect(() => loadConfigFromEnv(env)).not.toThrow();
 
@@ -132,7 +127,6 @@ describe("env (ENV keys and ENV_DEFAULTS)", () => {
         [ENV.RPC_URL]: "https://rpc.example.com",
         [ENV.TOKEN_ADDRESS]: "0x111111111111111111111111111111111111111111",
         [ENV.AGENT_PRIVATE_KEY_FILE]: keyFile,
-        [ENV.LLM_API_KEY]: "sk-key",
       };
       const config = loadConfigFromEnv(env);
       expect(config.rpcUrl).toBe(env[ENV.RPC_URL]);
@@ -149,7 +143,6 @@ describe("env (ENV keys and ENV_DEFAULTS)", () => {
         [ENV.RPC_URL]: "https://rpc.example.com",
         [ENV.TOKEN_ADDRESS]: "0x111111111111111111111111111111111111111111",
         [ENV.AGENT_PRIVATE_KEY_FILE]: keyFile,
-        [ENV.LLM_API_KEY]: "sk-key",
         [ENV.DATA_DIR]: "/custom/data",
         [ENV.CHAIN_ID]: "56",
       };
@@ -163,7 +156,6 @@ describe("env (ENV keys and ENV_DEFAULTS)", () => {
         [ENV.RPC_URL]: "https://rpc.example.com",
         [ENV.TOKEN_ADDRESS]: "0x111111111111111111111111111111111111111111",
         [ENV.AGENT_PRIVATE_KEY_FILE]: keyFile,
-        [ENV.LLM_API_KEY]: "sk-key",
         [ENV.BUYBACK_ENABLED]: "true",
       };
       const config = loadConfigFromEnv(env);
@@ -178,7 +170,6 @@ describe("env (ENV keys and ENV_DEFAULTS)", () => {
         [ENV.RPC_URL]: "https://rpc.example.com",
         [ENV.TOKEN_ADDRESS]: "0x111111111111111111111111111111111111111111",
         [ENV.AGENT_PRIVATE_KEY_FILE]: keyFile,
-        [ENV.LLM_API_KEY]: "sk-key",
         [ENV.CHAIN_ID]: "1",
       };
       expect(() => loadConfigFromEnv(env)).toThrow(/Unsupported CHAIN_ID/);

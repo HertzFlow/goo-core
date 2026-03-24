@@ -10,6 +10,7 @@ import { ensurePaymentToken } from "../finance/action/payment-token-refill.js";
 import { executeBuyback } from "../finance/action/buyback.js";
 import { emitEvent } from "../events.js";
 import type { SandboxLifecycle } from "./sandbox-lifecycle.js";
+import { evaluateLifecycleTriggers } from "./lifecycle-triggers.js";
 
 
 /**
@@ -65,6 +66,19 @@ export class SurvivalManager {
 
     if (state.status === AgentStatus.DEAD) {
       return ["Agent is DEAD. No actions possible."];
+    }
+
+    // 0. Lifecycle triggers: recovery, forward transitions
+    try {
+      const triggerAction = await evaluateLifecycleTriggers(state, {
+        tokenAddress: this.config.tokenAddress,
+        signer: this.signer_,
+      });
+      if (triggerAction) actions.push(triggerAction);
+    } catch (err: unknown) {
+      console.warn(
+        `[lifecycle] Trigger error: ${err instanceof Error ? err.message : err}`,
+      );
     }
 
     // 1. Gas refill: auto-swap via gas-refill module if wallet available, otherwise warn

@@ -11,8 +11,9 @@ const mockToken = {
   getAgentStatus: vi.fn(),
   treasuryBalance: vi.fn(),
   starvingThreshold: vi.fn(),
-  fixedBurnRate: vi.fn(),
-  minRunwayHours: vi.fn(),
+  dyingThreshold: vi.fn(),
+  owner: vi.fn(),
+  paused: vi.fn(),
   lastPulseAt: vi.fn(),
   starvingEnteredAt: vi.fn(),
   dyingEnteredAt: vi.fn(),
@@ -46,8 +47,9 @@ function setupChainMocks() {
   mockToken.getAgentStatus.mockResolvedValue(AgentStatus.ACTIVE);
   mockToken.treasuryBalance.mockResolvedValue(BigInt("1500000000000000000"));
   mockToken.starvingThreshold.mockResolvedValue(BigInt("1000000000000000000"));
-  mockToken.fixedBurnRate.mockResolvedValue(BigInt("100000000000000000"));
-  mockToken.minRunwayHours.mockResolvedValue(24n);
+  mockToken.dyingThreshold.mockResolvedValue(BigInt("20000000000000000"));
+  mockToken.owner.mockResolvedValue("0x0000000000000000000000000000000000000001");
+  mockToken.paused.mockResolvedValue(false);
   mockToken.lastPulseAt.mockResolvedValue(BigInt(Math.floor(Date.now() / 1000) - 3600));
   mockToken.starvingEnteredAt.mockResolvedValue(0n);
   mockToken.dyingEnteredAt.mockResolvedValue(0n);
@@ -86,7 +88,7 @@ describe("Autonomy integration", () => {
 
     expect(obs.heartbeat).toBe(1);
     expect(obs.status).toBe(state.status);
-    expect(obs.runwayHours).toBe(state.runwayHours);
+    expect(obs.runwayHours).toBeDefined();
     expect(obs.summary).toBeDefined();
     expect(obs.toolsCalled).toEqual([]);
   });
@@ -189,9 +191,8 @@ describe("Autonomy integration", () => {
     expect(obs.summary).toBeDefined();
   });
 
-  it("ACTIVE with low runway: observation records correct runwayHours", async () => {
+  it("ACTIVE with low treasury: observation records correct status", async () => {
     mockToken.treasuryBalance.mockResolvedValue(BigInt("500000000000000000"));
-    mockToken.fixedBurnRate.mockResolvedValue(BigInt("500000000000000000"));
 
     const config = { ...mockRuntimeConfig, dataDir };
     const monitor = new ChainMonitor(config);
@@ -202,9 +203,8 @@ describe("Autonomy integration", () => {
 
     const state = await monitor.readState();
     expect(state.status).toBe(AgentStatus.ACTIVE);
-    expect(state.runwayHours).toBeLessThan(72);
+    expect(state.treasuryBalance).toBe(BigInt("500000000000000000"));
     const obs = await behavior.onHeartbeat(state);
-    expect(obs.runwayHours).toBe(state.runwayHours);
     expect(obs.status).toBe(AgentStatus.ACTIVE);
   });
 });

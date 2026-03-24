@@ -1,6 +1,7 @@
 export { ChainMonitor } from "./chain-monitor.js";
 export { SurvivalManager } from "./survival-manager.js";
-export { buildLivenessPayload, collectAgentInspection } from "./status-collector.js";
+export { evaluateLifecycleTriggers } from "./lifecycle-triggers.js";
+export { buildLivenessPayload } from "./status-collector.js";
 export { emitPulse, getLivenessPayload } from "./pulse.js";
 export {
   createInspectRequestListener,
@@ -12,7 +13,6 @@ export {
   createSandboxLifecycle,
   E2bSandboxLifecycle,
   AgosSandboxLifecycle,
-  ByodSandboxLifecycle,
   NoopSandboxLifecycle,
   type SandboxLifecycle,
   type SandboxHealth,

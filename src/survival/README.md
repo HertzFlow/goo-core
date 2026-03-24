@@ -34,14 +34,12 @@ This module is responsible for **reading on-chain state** and **executing protoc
 
 - **createInspectRequestListener(deps):** Returns an HTTP request listener that serves:
   - **GET /liveness** — JSON payload proving the process is a Goo Agent (status, lastPulseAt, treasury, runway, tokenAddress, chainId).
-  - **GET /inspect** — Full inspection: chain state, survival last actions, token info, LLM config, Three Laws.
 - **runInspectServer(port, deps):** Starts HTTP server on given port with that listener.
-- **buildLivenessApiDeps(monitor, survival, config):** Builds deps for the listener (includes getThreeLaws from SoulManager).
+- **buildLivenessApiDeps(monitor, survival, config):** Builds deps for the listener.
 
 ### Status collector (`status-collector.ts`)
 
 - **buildLivenessPayload(state, config):** Builds `LivenessPayload` for /liveness.
-- **collectAgentInspection(input):** Builds full `AgentInspectionPayload` for /inspect (chain, survival, token, llm, threeLaws).
 
 ### Sandbox lifecycle (`sandbox-lifecycle.ts`)
 
@@ -62,6 +60,6 @@ This module is responsible for **reading on-chain state** and **executing protoc
 - **Sells** agent tokens for BNB when STARVING/DYING to refill treasury (SurvivalSell).
 - **Optionally buys back** agent tokens when ACTIVE and treasury is healthy (buyback).
 - **Optionally** checks and renews the compute sandbox (e2b/AGOS).
-- **Exposes** GET /liveness and GET /inspect so anyone can verify the agent is alive and see its economic state.
+- **Exposes** GET /liveness so anyone can verify the agent is alive and see its current public status.
 
 All survival actions are **deterministic** from chain state and config; no LLM is involved in this module.

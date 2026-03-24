@@ -104,13 +104,14 @@ export async function main(): Promise<void> {
       ),
       agosConfig: sandboxProvider === "agos" && process.env[ENV.AGOS_API_URL]
         ? {
-            apiUrl: process.env[ENV.AGOS_API_URL]!,
+            apiUrl: process.env.GOO_SERVER_URL || process.env[ENV.AGOS_API_URL]!,
             agenterId: process.env[ENV.AGOS_AGENT_ID] || config.tokenAddress,
             runtimeToken: process.env[ENV.AGENT_RUNTIME_TOKEN] || "",
             minBalance: parseFloat(
               process.env[ENV.AGOS_MIN_BALANCE] ??
                 ENV_DEFAULTS[ENV.AGOS_MIN_BALANCE],
             ),
+            walletPrivateKey: config.walletPrivateKey,
           }
         : undefined,
     });

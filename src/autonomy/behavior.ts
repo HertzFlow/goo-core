@@ -68,8 +68,7 @@ export class AutonomousBehavior {
 
     console.log(
       `[heartbeat #${heartbeat}] Status=${AgentStatus[state.status]}, ` +
-        `Treasury=${formatBnb(state.treasuryBalance)} BNB, ` +
-        `Runway=${state.runwayHours}h`,
+        `Treasury=${formatBnb(state.treasuryBalance)} BNB`,
     );
 
     // Agent is dead — record and return, no actions possible
@@ -114,7 +113,7 @@ export class AutonomousBehavior {
       balanceUsd: parseFloat(
         formatBnb(state.treasuryBalance),
       ),
-      runwayHours: state.runwayHours,
+      runwayHours: 0,
       summary: survivalActions.join("; ") || "Survival OK",
       toolsCalled: [],
       shellCommands: [],

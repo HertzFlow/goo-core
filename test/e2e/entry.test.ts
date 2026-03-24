@@ -12,15 +12,15 @@ const e2eHoisted = vi.hoisted(() => {
     status: 3 as const, // AgentStatus.DEAD
     treasuryBalance: 0n,
     starvingThreshold: 0n,
-    fixedBurnRate: 0n,
-    minRunwayHours: 0n,
+    dyingThreshold: 20000000000000000n,
     nativeBalance: 0n,
     tokenHoldings: 0n,
     totalSupply: 0n,
     lastPulseAt: 0n,
     starvingEnteredAt: 0n,
     dyingEnteredAt: 0n,
-    runwayHours: 0,
+    owner: "0x0000000000000000000000000000000000000001",
+    paused: false,
   };
   return {
     mockMonitorInstance: {
@@ -49,7 +49,7 @@ describe("Entry process exit on missing config (E2E)", () => {
     if (!existsSync(distIndex)) {
       return; // skip when dist not built
     }
-    const childEnv = { ...process.env, RPC_URL: "", TOKEN_ADDRESS: "", AGENT_PRIVATE_KEY_FILE: "", LLM_API_KEY: "" };
+    const childEnv = { ...process.env, RPC_URL: "", TOKEN_ADDRESS: "", AGENT_PRIVATE_KEY_FILE: "" };
     delete childEnv.VITEST; // so child actually runs main() and hits loadConfig()
     return new Promise<void>((resolve, reject) => {
       const child = spawn(process.execPath, [distIndex], {
@@ -111,7 +111,6 @@ describe("Full Core workflow E2E (main loop until DEAD)", () => {
       RPC_URL: process.env.RPC_URL,
       TOKEN_ADDRESS: process.env.TOKEN_ADDRESS,
       AGENT_PRIVATE_KEY_FILE: process.env.AGENT_PRIVATE_KEY_FILE,
-      LLM_API_KEY: process.env.LLM_API_KEY,
       DATA_DIR: process.env.DATA_DIR,
       WORKSPACE_DIR: process.env.WORKSPACE_DIR,
     };
@@ -119,7 +118,6 @@ describe("Full Core workflow E2E (main loop until DEAD)", () => {
     process.env.RPC_URL = "https://bsc-dataseed.test.org";
     process.env.TOKEN_ADDRESS = "0x111111111111111111111111111111111111111111";
     process.env.AGENT_PRIVATE_KEY_FILE = join(walletDir, "private-key");
-    process.env.LLM_API_KEY = "test-key";
     process.env.DATA_DIR = dataDir;
     process.env.WORKSPACE_DIR = join(dataDir, "workspace");
     process.env.HEARTBEAT_INTERVAL_MS = "10"; // short interval so multi-heartbeat E2E finishes quickly

@@ -19,7 +19,6 @@ Tools that an LLM agent (e.g. in OpenClaw) can invoke. goo-core does not run the
 | **bsc_send_tx** | `bsc-send-tx.ts` | Broadcast a signed tx. |
 | **bsc_sign_and_send_tx** | `bsc-sign-and-send-tx.ts` | Analyze → sign → send in one step. Refuses blocked txs. |
 | **refill_payment_token** | `refill-payment-token.ts` | Ensure payment token (e.g. USDT for x402) balance; swap BNB→USDT if needed. |
-| **renew_agos_aiou** | `renew-agos-aiou.ts` | AGOS: renew or top up AIOU balance for runtime. |
 
 ---
 
@@ -39,4 +38,4 @@ Each tool receives a **ToolContext**: chainState, config, dataDir, workspaceDir,
 
 ## Usage note
 
-In the current goo-core architecture, **LLM and tool dispatch run in OpenClaw**, not in goo-core. goo-core exposes GET /inspect (and optionally a tool-execution API) so OpenClaw can pass chain state and receive signed txs or file operations. The tool **definitions** (name, description, parameters) and **execution logic** in this directory are the reference implementation; OpenClaw or another gateway may call into goo-core to execute them (e.g. via local sidecar or RPC).
+In the current goo-core architecture, **LLM and tool dispatch run in OpenClaw**, not in goo-core. The tool **definitions** (name, description, parameters) and **execution logic** in this directory are the reference implementation; OpenClaw or another gateway may call into goo-core to execute them (e.g. via local sidecar or RPC).

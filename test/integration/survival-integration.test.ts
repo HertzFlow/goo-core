@@ -8,8 +8,9 @@ const mockToken = {
   getAgentStatus: vi.fn(),
   treasuryBalance: vi.fn(),
   starvingThreshold: vi.fn(),
-  fixedBurnRate: vi.fn(),
-  minRunwayHours: vi.fn(),
+  dyingThreshold: vi.fn(),
+  owner: vi.fn(),
+  paused: vi.fn(),
   lastPulseAt: vi.fn(),
   starvingEnteredAt: vi.fn(),
   dyingEnteredAt: vi.fn(),
@@ -51,8 +52,9 @@ describe("ChainMonitor + SurvivalManager integration", () => {
     mockToken.getAgentStatus.mockResolvedValue(AgentStatus.ACTIVE);
     mockToken.treasuryBalance.mockResolvedValue(BigInt("1500000000000000000"));
     mockToken.starvingThreshold.mockResolvedValue(BigInt("1000000000000000000"));
-    mockToken.fixedBurnRate.mockResolvedValue(BigInt("100000000000000000"));
-    mockToken.minRunwayHours.mockResolvedValue(24n);
+    mockToken.dyingThreshold.mockResolvedValue(BigInt("20000000000000000"));
+    mockToken.owner.mockResolvedValue("0x0000000000000000000000000000000000000001");
+    mockToken.paused.mockResolvedValue(false);
     mockToken.lastPulseAt.mockResolvedValue(BigInt(0));
     mockToken.starvingEnteredAt.mockResolvedValue(0n);
     mockToken.dyingEnteredAt.mockResolvedValue(0n);
@@ -178,15 +180,6 @@ describe("ChainMonitor + SurvivalManager integration", () => {
     const survival = new SurvivalManager(monitor as never, mockRuntimeConfig, mockSigner);
     const actions = await survival.evaluate(state);
     expect(actions.some((a) => a.includes("No token holdings to sell"))).toBe(true);
-  });
-
-  it("Runway zero when fixedBurnRate very high relative to treasury", async () => {
-    mockToken.treasuryBalance.mockResolvedValue(BigInt("1000000000000000"));
-    mockToken.fixedBurnRate.mockResolvedValue(BigInt("1000000000000000000000"));
-    const monitor = new ChainMonitor(mockRuntimeConfig);
-    await monitor.init();
-    const state = await monitor.readState();
-    expect(state.runwayHours).toBe(0);
   });
 
   it("Zero native balance triggers gas warning (Gas Bootstrap edge)", async () => {

@@ -75,7 +75,7 @@ describe("Liveness / Inspect API — errors & URL handling", () => {
   it("strips query string from path for /liveness?debug=1", async () => {
     const deps = minimalDeps({
       monitor: {
-        readState: async () => makeChainState({ status: AgentStatus.ACTIVE, runwayHours: 1 }),
+        readState: async () => makeChainState({ status: AgentStatus.ACTIVE }),
       } as unknown as ChainMonitor,
     });
     await listen(createInspectRequestListener(deps));
@@ -88,7 +88,7 @@ describe("Liveness / Inspect API — errors & URL handling", () => {
   it("omitted lastSurvivalActions yields empty lastActions on /inspect", async () => {
     const deps: LivenessApiDeps = {
       monitor: {
-        readState: async () => makeChainState({ status: AgentStatus.ACTIVE, runwayHours: 100 }),
+        readState: async () => makeChainState({ status: AgentStatus.ACTIVE }),
       } as unknown as ChainMonitor,
       survival: {} as unknown as SurvivalManager,
       config: mockRuntimeConfig,
@@ -104,7 +104,7 @@ describe("Liveness / Inspect API — errors & URL handling", () => {
   it("runInspectServer binds listener and serves GET /liveness", async () => {
     const deps: LivenessApiDeps = {
       monitor: {
-        readState: async () => makeChainState({ status: AgentStatus.ACTIVE, runwayHours: 50 }),
+        readState: async () => makeChainState({ status: AgentStatus.ACTIVE }),
       } as unknown as ChainMonitor,
       survival: {} as unknown as SurvivalManager,
       config: mockRuntimeConfig,

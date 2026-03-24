@@ -3,21 +3,16 @@ import type { ChainMonitor } from "./chain-monitor.js";
 import type { SurvivalManager } from "./survival-manager.js";
 import type { RuntimeConfig } from "../types.js";
 import { getLivenessPayload } from "./pulse.js";
-import { collectAgentInspection } from "./status-collector.js";
-import { SoulManager } from "../autonomy/soul.js";
 
 export interface LivenessApiDeps {
   monitor: ChainMonitor;
   survival: SurvivalManager;
   config: RuntimeConfig;
-  getThreeLaws: () => string;
-  /** Last survival action messages (from last evaluate). If not set, inspect uses []. */
-  lastSurvivalActions?: string[];
 }
 
 /**
- * Create request listener that serves GET /liveness and GET /inspect.
- * When agent is publicly deployed, anyone can call these to verify it is a Goo Agent.
+ * Create request listener that serves GET /liveness.
+ * When agent is publicly deployed, anyone can call this to verify it is a Goo Agent.
  */
 export function createInspectRequestListener(deps: LivenessApiDeps) {
   return async (
@@ -43,22 +38,8 @@ export function createInspectRequestListener(deps: LivenessApiDeps) {
         return;
       }
 
-      if (path === "/inspect" || path === "/inspect/") {
-        const survivalActions = deps.lastSurvivalActions ?? [];
-        const payload = collectAgentInspection({
-          chainState: state,
-          survivalActions,
-          config: deps.config,
-          threeLaws: deps.getThreeLaws(),
-          monitor: deps.monitor,
-        });
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(payload, null, 2));
-        return;
-      }
-
       res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Not found", paths: ["/liveness", "/inspect"] }));
+      res.end(JSON.stringify({ error: "Not found", paths: ["/liveness"] }));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       res.writeHead(500, { "Content-Type": "application/json" });
@@ -68,7 +49,7 @@ export function createInspectRequestListener(deps: LivenessApiDeps) {
 }
 
 /**
- * Start HTTP server that serves GET /liveness and GET /inspect.
+ * Start HTTP server that serves GET /liveness.
  * Use when agent is publicly deployed so anyone can verify it is a Goo Agent.
  */
 export function runInspectServer(
@@ -83,14 +64,12 @@ export function runInspectServer(
     });
   });
   server.listen(port, () => {
-    console.log(`[liveness-api] Listening on http://0.0.0.0:${port} — GET /liveness, GET /inspect`);
+    console.log(`[liveness-api] Listening on http://0.0.0.0:${port} — GET /liveness`);
   });
   return server;
 }
 
-/**
- * Build deps for liveness API from monitor, survival, config and dataDir (for SoulManager.getThreeLaws).
- */
+/** Build deps for the public liveness API. */
 export function buildLivenessApiDeps(
   monitor: ChainMonitor,
   survival: SurvivalManager,
@@ -100,6 +79,5 @@ export function buildLivenessApiDeps(
     monitor,
     survival,
     config,
-    getThreeLaws: () => SoulManager.getThreeLaws(),
   };
 }

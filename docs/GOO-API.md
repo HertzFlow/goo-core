@@ -14,8 +14,6 @@ The Core is configured via **environment variables** (see `src/index.ts` / `load
 | `CHAIN_ID` | Chain ID (e.g. 56 BSC, 97 BSC Testnet) |
 | `TOKEN_ADDRESS` | Goo Agent token contract (IGooAgentToken) |
 | `WALLET_PRIVATE_KEY` | Agent wallet private key (or path via key source) |
-| `LLM_API_URL` | OpenAI-compatible API base URL |
-| `LLM_API_KEY` | API key |
 | `LLM_MODEL` | Model name (e.g. deepseek/deepseek-chat) |
 | `DATA_DIR` | Persistent data directory (SOUL.md, memory, uploads) |
 | `HEARTBEAT_INTERVAL_MS` | Heartbeat interval (default 30000) |
@@ -46,7 +44,7 @@ Snapshot read from chain each heartbeat:
 
 ### RuntimeConfig
 
-Runtime configuration: `rpcUrl`, `chainId`, `tokenAddress`, `walletPrivateKey`, LLM fields, `heartbeatIntervalMs`, `dataDir`, `uploads` (soul, agent, skills, memory), gas refill settings.
+Runtime configuration: `rpcUrl`, `chainId`, `tokenAddress`, `walletPrivateKey`, `llmModel`, `heartbeatIntervalMs`, `dataDir`, `uploads` (soul, agent, skills, memory), gas refill settings, and OpenClaw gateway linkage.
 
 ### Observation
 

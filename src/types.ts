@@ -15,17 +15,16 @@ export enum AgentStatus {
 export interface ChainState {
   status: AgentStatus;
   treasuryBalance: bigint; // BNB balance (wei) — contract + wallet
-  starvingThreshold: bigint; // minimum balance before Starving (wei)
-  fixedBurnRate: bigint; // daily burn in BNB (wei)
-  minRunwayHours: bigint;
+  starvingThreshold: bigint; // minimum balance before Starving (wei) — 0.015 BNB constant
+  dyingThreshold: bigint; // deprecated (always 0), kept for backward compat
   nativeBalance: bigint; // BNB balance of agent wallet (wei)
   tokenHoldings: bigint; // agent token balance of contract
   totalSupply: bigint;
   lastPulseAt: bigint; // unix timestamp (last Pulse / proof-of-life)
   starvingEnteredAt: bigint;
   dyingEnteredAt: bigint;
-  // Derived
-  runwayHours: number; // treasuryBalance / (fixedBurnRate / 24)
+  owner: string; // owner address (admin/economic role)
+  paused: boolean; // whether the contract is paused
 }
 
 // ─── Runtime Configuration ──────────────────────────────────────────────
@@ -39,8 +38,6 @@ export interface RuntimeConfig {
   walletPrivateKey?: string;
 
   // LLM (informational — actual calls delegated to OpenClaw)
-  llmApiUrl: string;
-  llmApiKey: string;
   llmModel: string;
 
   // Runtime behavior
@@ -144,39 +141,4 @@ export interface LivenessPayload {
   chainId: number;
   /** When this payload was generated (ISO string) */
   timestamp: string;
-}
-
-/** Full inspection payload for GET /inspect — all internal state for verification. */
-export interface AgentInspectionPayload {
-  protocol: "goo";
-  timestamp: string;
-  liveness: LivenessPayload;
-  chain: {
-    status: string;
-    treasuryBalance: string;
-    starvingThreshold: string;
-    fixedBurnRate: string;
-    nativeBalance: string;
-    tokenHoldings: string;
-    totalSupply: string;
-    runwayHours: number;
-    lastPulseAt: number;
-    starvingEnteredAt: number;
-    dyingEnteredAt: number;
-  };
-  survival: {
-    lastActions: string[];
-    gasWarning: boolean;
-  };
-  token: {
-    address: string;
-    holdings: string;
-    totalSupply: string;
-  };
-  llm: {
-    model: string;
-    apiUrl: string;
-    configured: boolean;
-  };
-  threeLaws: string;
 }

@@ -33,9 +33,7 @@ export function loadConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Runtime
     walletPrivateKeyFile,
     walletPrivateKey: loadPrivateKeyFromFile(walletPrivateKeyFile),
 
-    // LLM config (informational — actual calls delegated to OpenClaw)
-    llmApiUrl: optional(env, ENV.LLM_API_URL, ENV_DEFAULTS[ENV.LLM_API_URL]),
-    llmApiKey: env[ENV.LLM_API_KEY] || "",
+    // LLM model selection is informational here; actual calls are delegated to OpenClaw.
     llmModel: optional(env, ENV.LLM_MODEL, ENV_DEFAULTS[ENV.LLM_MODEL]),
 
     heartbeatIntervalMs: Number.parseInt(optional(env, ENV.HEARTBEAT_INTERVAL_MS, ENV_DEFAULTS[ENV.HEARTBEAT_INTERVAL_MS]), 10),

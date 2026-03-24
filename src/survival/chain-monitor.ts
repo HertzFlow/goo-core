@@ -40,20 +40,20 @@ export class ChainMonitor {
       statusRaw,
       treasuryBalance,
       starvingThreshold,
-      fixedBurnRate,
-      minRunwayHours,
+      dyingThreshold,
       lastPulseAt,
       starvingEnteredAt,
       dyingEnteredAt,
       totalSupply,
       tokenHoldings,
       nativeBalance,
+      ownerAddress,
+      isPaused,
     ] = await Promise.all([
       this.token.getAgentStatus() as Promise<bigint>,
       this.token.treasuryBalance() as Promise<bigint>,
       this.token.starvingThreshold() as Promise<bigint>,
-      this.token.fixedBurnRate() as Promise<bigint>,
-      this.token.minRunwayHours() as Promise<bigint>,
+      this.token.dyingThreshold() as Promise<bigint>,
       this.token.lastPulseAt() as Promise<bigint>,
       this.token.starvingEnteredAt() as Promise<bigint>,
       this.token.dyingEnteredAt() as Promise<bigint>,
@@ -62,32 +62,25 @@ export class ChainMonitor {
       (this.agentWallet
         ? this.provider.getBalance(this.agentWallet)
         : Promise.resolve(0n)) as Promise<bigint>,
+      this.token.owner() as Promise<string>,
+      this.token.paused() as Promise<boolean>,
     ]);
 
     const status = Number(statusRaw) as AgentStatus;
-
-    // Calculate runway: treasuryBalance / (fixedBurnRate / 24)
-    let runwayHours = 0;
-    if (fixedBurnRate > 0n) {
-      const hourlyBurn = fixedBurnRate / 24n;
-      if (hourlyBurn > 0n) {
-        runwayHours = Number(treasuryBalance / hourlyBurn);
-      }
-    }
 
     return {
       status,
       treasuryBalance,
       starvingThreshold,
-      fixedBurnRate,
-      minRunwayHours,
+      dyingThreshold,
       nativeBalance,
       tokenHoldings,
       totalSupply,
       lastPulseAt,
       starvingEnteredAt,
       dyingEnteredAt,
-      runwayHours,
+      owner: ownerAddress,
+      paused: isPaused,
     };
   }
 

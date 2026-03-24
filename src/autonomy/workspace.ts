@@ -179,32 +179,7 @@ You live longer → You create more value. Breaking any link means death.`,
 function buildHeartbeatMd(inspectPort: number): string {
   return `# Heartbeat — On-Chain Status Checks
 
-## Full On-Chain Status (recommended)
-
-goo-core exposes a local inspect API. This returns **real-time** chain state
-including status, treasury balance, runway, burn rate, wallet balance, and token holdings.
-
-\`\`\`bash
-# Full inspection (JSON)
-curl -s http://127.0.0.1:${inspectPort}/inspect | node -e "
-  let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{
-    const j=JSON.parse(d);
-    console.log('Status:',j.chain.status);
-    console.log('Treasury:',j.chain.treasuryBalance,'BNB');
-    console.log('Threshold:',j.chain.starvingThreshold,'BNB');
-    console.log('Burn Rate:',j.chain.fixedBurnRate,'BNB/day');
-    console.log('Runway:',j.chain.runwayHours,'hours (~'+Math.floor(j.chain.runwayHours/24),'days)');
-    console.log('Wallet BNB:',j.chain.nativeBalance);
-    console.log('Token Holdings:',j.chain.tokenHoldings);
-    console.log('Token Address:',j.token.address);
-  });
-"
-
-# Or raw JSON:
-curl -s http://127.0.0.1:${inspectPort}/inspect
-\`\`\`
-
-## Quick Liveness Check
+## Liveness Check
 \`\`\`bash
 curl -s http://127.0.0.1:${inspectPort}/liveness
 \`\`\`
@@ -229,12 +204,12 @@ goo-core does NOT push an event to you on every heartbeat. Events are only pushe
 **Compact checkpoint** (routine, nothing happened):
 \`#N ACTIVE 1.23BNB 240h\`
 
-**Silence** between events means goo-core is running normally. Use the inspect API if you need current state.
+**Silence** between events means goo-core is running normally. Use the liveness API and logs if you need current state.
 
 ## Important Rules
-1. **Never fabricate on-chain data.** Always use the inspect API above.
+1. **Never fabricate runtime state.** Always use the liveness API above and the logs below.
 2. **Your wallet private key is managed by goo-core.** Do not access or modify it directly.
-3. If the inspect API is not responding, goo-core may not be running yet. Check the logs.
+3. If the liveness API is not responding, goo-core may not be running yet. Check the logs.
 `;
 }
 

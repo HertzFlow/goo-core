@@ -5,7 +5,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   E2bSandboxLifecycle,
   AgosSandboxLifecycle,
-  ByodSandboxLifecycle,
   NoopSandboxLifecycle,
   createSandboxLifecycle,
 } from "../../src/survival/sandbox-lifecycle.js";
@@ -119,7 +118,7 @@ describe("AgosSandboxLifecycle + fetch", () => {
   it("returns OK when balance above min", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ ok: true, data: { balance: 100 } }),
+      json: async () => ({ ok: true, data: { availableBalance: "100", frozenBalance: "0", spentTotal: "0" } }),
     }) as unknown as typeof fetch;
     const life = new AgosSandboxLifecycle({
       apiUrl: "https://api.test",
@@ -135,7 +134,7 @@ describe("AgosSandboxLifecycle + fetch", () => {
   it("warns when balance below min but positive", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ ok: true, data: { balance: 3 } }),
+      json: async () => ({ ok: true, data: { availableBalance: "3", frozenBalance: "0", spentTotal: "0" } }),
     }) as unknown as typeof fetch;
     const life = new AgosSandboxLifecycle({
       apiUrl: "https://api.test",
@@ -151,7 +150,7 @@ describe("AgosSandboxLifecycle + fetch", () => {
   it("returns unhealthy when balance depleted", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ ok: true, data: { balance: 0 } }),
+      json: async () => ({ ok: true, data: { availableBalance: "0", frozenBalance: "0", spentTotal: "0" } }),
     }) as unknown as typeof fetch;
     const life = new AgosSandboxLifecycle({
       apiUrl: "https://api.test",
@@ -201,13 +200,6 @@ describe("createSandboxLifecycle (env + params)", () => {
     const life = createSandboxLifecycle({ agentId: "a" });
     expect(life).toBeInstanceOf(NoopSandboxLifecycle);
     expect(life.provider).toBe("none");
-  });
-
-  it("selects ByodSandboxLifecycle for SANDBOX_PROVIDER=byod", () => {
-    process.env.SANDBOX_PROVIDER = "byod";
-    const life = createSandboxLifecycle({ agentId: "a" });
-    expect(life).toBeInstanceOf(ByodSandboxLifecycle);
-    expect(life.provider).toBe("byod");
   });
 
   it("selects E2bSandboxLifecycle when e2b + manager URL + signer", () => {

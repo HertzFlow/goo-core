@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLivenessPayload, collectAgentInspection } from "../../src/survival/status-collector.js";
+import { buildLivenessPayload } from "../../src/survival/status-collector.js";
 import { AgentStatus } from "../../src/types.js";
 import { makeChainState, mockRuntimeConfig } from "../helpers/fixtures.js";
 
@@ -53,93 +53,4 @@ describe("status-collector", () => {
     });
   });
 
-  describe("collectAgentInspection", () => {
-    const mockMonitor = {
-      readState: async () => makeChainState(),
-      rpcProvider: {},
-      walletAddress: "0xMock",
-    };
-
-    it("returns full inspection with liveness, chain, survival, token, llm, threeLaws", () => {
-      const state = makeChainState({ status: AgentStatus.ACTIVE });
-      const survivalActions = ["Pulse sent (tx: 0xabc)"];
-      const threeLaws = "## The Three Laws\n\nLaw I — Never Harm.";
-      const payload = collectAgentInspection({
-        chainState: state,
-        survivalActions,
-        config: mockRuntimeConfig,
-        threeLaws,
-        monitor: mockMonitor as never,
-      });
-
-      expect(payload.protocol).toBe("goo");
-      expect(payload.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-      expect(payload.liveness).toBeDefined();
-      expect(payload.liveness.protocol).toBe("goo");
-      expect(payload.liveness.status).toBe("ACTIVE");
-
-      expect(payload.chain).toBeDefined();
-      expect(payload.chain.status).toBe("ACTIVE");
-      expect(typeof payload.chain.treasuryBalance).toBe("string");
-      expect(typeof payload.chain.lastPulseAt).toBe("number");
-      expect(typeof payload.chain.owner).toBe("string");
-      expect(typeof payload.chain.paused).toBe("boolean");
-
-      expect(payload.survival).toBeDefined();
-      expect(payload.survival.lastActions).toEqual(survivalActions);
-      expect(typeof payload.survival.gasWarning).toBe("boolean");
-
-      expect(payload.token).toBeDefined();
-      expect(payload.token.address).toBe(mockRuntimeConfig.tokenAddress);
-      expect(typeof payload.token.holdings).toBe("string");
-      expect(typeof payload.token.totalSupply).toBe("string");
-
-      expect(payload.llm).toBeDefined();
-      expect(payload.llm.model).toBe(mockRuntimeConfig.llmModel);
-      expect(payload.llm.via).toBe("openclaw");
-
-      expect(payload.threeLaws).toBe(threeLaws);
-    });
-
-    it("sets survival.gasWarning when native balance below minGasBalance", () => {
-      const state = makeChainState({
-        nativeBalance: BigInt("1000000000000000"),
-      });
-      const configWithHighMin = { ...mockRuntimeConfig, minGasBalance: BigInt("10000000000000000") };
-      const payload = collectAgentInspection({
-        chainState: state,
-        survivalActions: [],
-        config: configWithHighMin,
-        threeLaws: "",
-        monitor: mockMonitor as never,
-      });
-      expect(payload.survival.gasWarning).toBe(true);
-    });
-
-    it("sets survival.gasWarning false when native balance above min", () => {
-      const state = makeChainState({
-        nativeBalance: BigInt("50000000000000000000"),
-      });
-      const payload = collectAgentInspection({
-        chainState: state,
-        survivalActions: [],
-        config: mockRuntimeConfig,
-        threeLaws: "",
-        monitor: mockMonitor as never,
-      });
-      expect(payload.survival.gasWarning).toBe(false);
-    });
-
-    it("uses empty lastActions when survivalActions is empty", () => {
-      const state = makeChainState();
-      const payload = collectAgentInspection({
-        chainState: state,
-        survivalActions: [],
-        config: mockRuntimeConfig,
-        threeLaws: "",
-        monitor: mockMonitor as never,
-      });
-      expect(payload.survival.lastActions).toEqual([]);
-    });
-  });
 });

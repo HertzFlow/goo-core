@@ -12,7 +12,6 @@ const mockMonitor = {
 const mockSurvival = {
   evaluate: vi.fn().mockResolvedValue([]),
 };
-const getThreeLaws = vi.fn().mockReturnValue("## The Three Laws\n\nLaw I.");
 
 function createMockReq(method: string, url: string): import("node:http").IncomingMessage {
   return { method, url } as import("node:http").IncomingMessage;
@@ -33,14 +32,11 @@ describe("liveness-api", () => {
     monitor: mockMonitor as never,
     survival: mockSurvival as never,
     config: mockRuntimeConfig,
-    getThreeLaws,
-    lastSurvivalActions: ["Pulse sent (tx: 0x1)"],
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockReadState.mockResolvedValue(makeChainState({ status: AgentStatus.ACTIVE }));
-    getThreeLaws.mockReturnValue("## The Three Laws");
   });
 
   describe("createInspectRequestListener", () => {
@@ -69,44 +65,6 @@ describe("liveness-api", () => {
       expect(body.protocol).toBe("goo");
     });
 
-    it("GET /inspect returns 200 and full inspection payload", async () => {
-      const listener = createInspectRequestListener(deps);
-      const { res, writeHead, end } = createMockRes();
-      await listener(createMockReq("GET", "/inspect"), res);
-
-      expect(mockReadState).toHaveBeenCalled();
-      expect(getThreeLaws).toHaveBeenCalled();
-      expect(writeHead).toHaveBeenCalledWith(200, { "Content-Type": "application/json" });
-      const body = JSON.parse(end.mock.calls[0][0]);
-      expect(body.protocol).toBe("goo");
-      expect(body.liveness).toBeDefined();
-      expect(body.liveness.status).toBe("ACTIVE");
-      expect(body.chain).toBeDefined();
-      expect(body.survival).toBeDefined();
-      expect(body.survival.lastActions).toEqual(["Pulse sent (tx: 0x1)"]);
-      expect(body.token).toBeDefined();
-      expect(body.llm).toBeDefined();
-      expect(body.threeLaws).toBe("## The Three Laws");
-    });
-
-    it("GET /inspect uses lastSurvivalActions from deps", async () => {
-      const listener = createInspectRequestListener({ ...deps, lastSurvivalActions: ["Action A"] });
-      const { res, end } = createMockRes();
-      await listener(createMockReq("GET", "/inspect"), res);
-      const body = JSON.parse(end.mock.calls[0][0]);
-      expect(body.survival.lastActions).toEqual(["Action A"]);
-    });
-
-    it("GET /inspect uses empty lastActions when lastSurvivalActions not set", async () => {
-      const depsNoActions = { ...deps };
-      delete (depsNoActions as { lastSurvivalActions?: string[] }).lastSurvivalActions;
-      const listener = createInspectRequestListener(depsNoActions);
-      const { res, end } = createMockRes();
-      await listener(createMockReq("GET", "/inspect"), res);
-      const body = JSON.parse(end.mock.calls[0][0]);
-      expect(body.survival.lastActions).toEqual([]);
-    });
-
     it("non-GET returns 405", async () => {
       const listener = createInspectRequestListener(deps);
       const { res, writeHead, end } = createMockRes();
@@ -123,7 +81,7 @@ describe("liveness-api", () => {
       expect(writeHead).toHaveBeenCalledWith(404, { "Content-Type": "application/json" });
       const body = JSON.parse(end.mock.calls[0][0]);
       expect(body.error).toBe("Not found");
-      expect(body.paths).toEqual(["/liveness", "/inspect"]);
+      expect(body.paths).toEqual(["/liveness"]);
     });
 
     it("when monitor.readState throws returns 500", async () => {
@@ -139,7 +97,7 @@ describe("liveness-api", () => {
   });
 
   describe("buildLivenessApiDeps", () => {
-    it("returns deps with getThreeLaws from SoulManager", () => {
+    it("returns deps with monitor, survival, and config", () => {
       const built = buildLivenessApiDeps(
         mockMonitor as never,
         mockSurvival as never,
@@ -148,8 +106,6 @@ describe("liveness-api", () => {
       expect(built.monitor).toBe(mockMonitor);
       expect(built.survival).toBe(mockSurvival);
       expect(built.config).toBe(mockRuntimeConfig);
-      expect(typeof built.getThreeLaws).toBe("function");
-      expect(built.getThreeLaws().length).toBeGreaterThan(0);
     });
   });
 });

@@ -23,7 +23,6 @@ function minimalDeps(overrides: Partial<LivenessApiDeps> = {}): LivenessApiDeps 
     } as unknown as ChainMonitor,
     survival: {} as unknown as SurvivalManager,
     config: mockRuntimeConfig,
-    getThreeLaws: () => "## laws",
     ...overrides,
   };
 }
@@ -64,11 +63,12 @@ describe("Liveness / Inspect API — errors & URL handling", () => {
     expect(body.message).toContain("simulated RPC failure");
   });
 
-  it("GET /inspect returns 500 when readState throws", async () => {
+  it("GET /inspect returns 500 when readState throws before path handling", async () => {
     await listen(createInspectRequestListener(minimalDeps()));
     const res = await fetch(`${baseUrl}/inspect`);
     expect(res.status).toBe(500);
-    const body = (await res.json()) as { message?: string };
+    const body = (await res.json()) as { error?: string; message?: string };
+    expect(body.error).toBe("Internal error");
     expect(body.message).toContain("simulated RPC failure");
   });
 
@@ -85,22 +85,6 @@ describe("Liveness / Inspect API — errors & URL handling", () => {
     expect(data.protocol).toBe("goo");
   });
 
-  it("omitted lastSurvivalActions yields empty lastActions on /inspect", async () => {
-    const deps: LivenessApiDeps = {
-      monitor: {
-        readState: async () => makeChainState({ status: AgentStatus.ACTIVE }),
-      } as unknown as ChainMonitor,
-      survival: {} as unknown as SurvivalManager,
-      config: mockRuntimeConfig,
-      getThreeLaws: () => "three",
-    };
-    await listen(createInspectRequestListener(deps));
-    const res = await fetch(`${baseUrl}/inspect`);
-    expect(res.ok).toBe(true);
-    const data = await res.json();
-    expect(data.survival.lastActions).toEqual([]);
-  });
-
   it("runInspectServer binds listener and serves GET /liveness", async () => {
     const deps: LivenessApiDeps = {
       monitor: {
@@ -108,7 +92,6 @@ describe("Liveness / Inspect API — errors & URL handling", () => {
       } as unknown as ChainMonitor,
       survival: {} as unknown as SurvivalManager,
       config: mockRuntimeConfig,
-      getThreeLaws: () => "laws",
     };
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     server = runInspectServer(0, deps);

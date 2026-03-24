@@ -113,27 +113,13 @@ describe("Liveness / Inspect API integration", () => {
     expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it("GET /inspect returns full inspection with liveness, chain, survival, token, llm, threeLaws", async () => {
+  it("GET /inspect is not supported and returns 404", async () => {
     await startServer();
     const res = await fetch(`${baseUrl}/inspect`);
-    expect(res.ok).toBe(true);
+    expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.protocol).toBe("goo");
-    expect(data.liveness).toBeDefined();
-    expect(data.liveness.protocol).toBe("goo");
-    expect(data.liveness.status).toBe("ACTIVE");
-    expect(data.chain).toBeDefined();
-    expect(data.chain.status).toBe("ACTIVE");
-    expect(data.survival).toBeDefined();
-    expect(Array.isArray(data.survival.lastActions)).toBe(true);
-    expect(data.survival.lastActions).toContain("Pulse sent (tx: 0xp)");
-    expect(data.token).toBeDefined();
-    expect(data.token.address).toBe(mockRuntimeConfig.tokenAddress);
-    expect(data.llm).toBeDefined();
-    expect(data.llm.model).toBe(mockRuntimeConfig.llmModel);
-    expect(data.llm.configured).toBe(true);
-    expect(typeof data.threeLaws).toBe("string");
-    expect(data.threeLaws.length).toBeGreaterThan(0);
+    expect(data.error).toBe("Not found");
+    expect(data.paths).toEqual(["/liveness"]);
   });
 
   it("GET /liveness validates as Goo Agent (protocol + status + lastPulseAt)", async () => {

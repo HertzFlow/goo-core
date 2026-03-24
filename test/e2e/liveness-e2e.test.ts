@@ -63,13 +63,12 @@ describe("Liveness E2E", () => {
     expect((data as { status: string }).status).toBe("ACTIVE");
   });
 
-  it("GET /inspect returns full inspection with lastSurvivalActions and threeLaws", async () => {
+  it("GET /inspect is unsupported and returns not found", async () => {
     const deps = buildLivenessApiDeps(
       mockMonitor as never,
       mockSurvival as never,
       mockRuntimeConfig
     );
-    deps.lastSurvivalActions = ["Pulse sent (tx: 0xe2e)"];
     const listener = createInspectRequestListener(deps);
     server = createServer((req, res) => {
       listener(req, res).catch((err) => {
@@ -87,12 +86,9 @@ describe("Liveness E2E", () => {
     });
 
     const res = await fetch(`${baseUrl}/inspect`);
-    expect(res.ok).toBe(true);
+    expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.protocol).toBe("goo");
-    expect(data.liveness).toBeDefined();
-    expect(data.liveness.status).toBe("ACTIVE");
-    expect(data.survival.lastActions).toContain("Pulse sent (tx: 0xe2e)");
-    expect(data.threeLaws).toBeDefined();
+    expect(data.error).toBe("Not found");
+    expect(data.paths).toEqual(["/liveness"]);
   });
 });

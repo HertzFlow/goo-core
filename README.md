@@ -133,7 +133,7 @@ Tests use Vitest; integration tests may require env (RPC, token) or mocks.
 ### General Support
 
 - @TrustWallet
-- @givemeonepeach
+- @peachlfg
 
 ---
 
